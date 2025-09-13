@@ -8,7 +8,6 @@ import (
 	"github.com/mikeziminio/go-custom-metrics/internal/model"
 )
 
-// POST /update/counter/someMetric/527
 func (a *API) Update(res http.ResponseWriter, req *http.Request) {
 	path := strings.TrimPrefix(req.URL.Path, "/update/")
 	els := strings.Split(path, "/")
