@@ -1,0 +1,57 @@
+version: '3'
+
+vars:
+  BIN: "{{.PWD}}/bin"
+
+tasks:
+  
+  build:
+    desc: Build all
+    cmds:
+      - "go build -o {{.BIN}}/server ./cmd/server"
+
+  prepare-test:
+    desc: Download and build yandex tests
+    cmds:
+      - "git clone git@github.com:Yandex-Practicum/go-autotests.git ./tmp-go-autotests"
+      - "(cd ./tmp-go-autotests && go test -c ./cmd/metricstest -o {{.BIN}}/metricstest)"
+      - "rm -r -f ./tmp-go-autotests"
+
+  test-all:
+    desc: Run all tests
+    cmds:
+      - "go test -race ./..."
+      - "task build"
+      - "{{.BIN}}/metricstest -test.v -test.run=^TestIteration1$ -binary-path={{.BIN}}/server"
+
+  test:
+    desc: Run local unit tests
+    cmds:
+      - "go test -race ./..."
+
+  fmt:
+    desc: Format and fix imports
+    cmds:
+      - "gofmt -w ."
+      - "goimports -w ."
+
+  prepare-lint:
+    desc: Install golangci-lint and nilaway, verify golangci-lint config
+    cmds:
+      - "GOBIN={{.BIN}} go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.4.0"
+      - "GOBIN={{.BIN}} go install go.uber.org/nilaway/cmd/nilaway@latest"
+      - "{{.BIN}}/golangci-lint cache clean"
+      - "{{.BIN}}/golangci-lint config verify"
+
+  lint:
+    desc: Run custom linter binary with nilaway
+    cmds:
+      - "{{.BIN}}/golangci-lint run -c .golangci.yml" 
+      # - {{.BIN}}/nilaway
+
+  default:
+    cmds:
+      - "task -l"
+      - "echo Bin directory: {{.BIN}}"
+    silent: true
+
