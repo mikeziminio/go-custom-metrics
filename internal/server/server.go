@@ -4,13 +4,16 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 
 	"github.com/mikeziminio/go-custom-metrics/internal/model"
 )
 
 type Storage interface {
-	Add(m model.Metric) error
+	Update(m model.Metric) error
+	List() map[string]model.Metric
+	Get(metricType model.MetricType, metricName string) (*model.Metric, error)
 }
 
 type API struct {
@@ -24,9 +27,11 @@ func StartServer(port int, storage Storage, logger *zap.Logger) error {
 		logger:  logger,
 	}
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/update/", api.Update)
+	r := chi.NewRouter()
+	r.Get("/", api.List)
+	r.Get("/value/{metricType}/{metricName}", api.Get)
+	r.Post("/update/{metricType}/{metricName}/{value}", api.Update)
 
-	err := http.ListenAndServe(fmt.Sprintf(":%d", port), mux) //nolint:gosec // no timeout
+	err := http.ListenAndServe(fmt.Sprintf(":%d", port), r)
 	return err
 }

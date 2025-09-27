@@ -1,6 +1,9 @@
 package model
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
 type MetricType string
 
@@ -25,3 +28,5 @@ type Metric struct {
 	Value *float64   `json:"value,omitempty"`
 	Hash  string     `json:"hash,omitempty"`
 }
+
+var MetricNotFoundErr = errors.New("metric not found")

@@ -125,12 +125,12 @@ func (a *Agent) Send(ctx context.Context, m *model.Metric) error {
 	case model.Counter:
 		u, err = url.JoinPath(
 			a.baseURL, "/update",
-			fmt.Sprintf("/%s/%s/%d/", string(m.MType), m.ID, *m.Delta),
+			fmt.Sprintf("/%s/%s/%d", string(m.MType), m.ID, *m.Delta),
 		)
 	case model.Gauge:
 		u, err = url.JoinPath(
 			a.baseURL, "/update",
-			fmt.Sprintf("/%s/%s/%.5f/", string(m.MType), m.ID, *m.Value),
+			fmt.Sprintf("/%s/%s/%.5f", string(m.MType), m.ID, *m.Value),
 		)
 	default:
 		panic(fmt.Sprintf("unknown metric type: %s", m.MType))
@@ -138,7 +138,7 @@ func (a *Agent) Send(ctx context.Context, m *model.Metric) error {
 	if err != nil {
 		return fmt.Errorf("failed to join url path for sending metric %s, %v", a.baseURL, m)
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, http.NoBody)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, http.NoBody)
 	if err != nil {
 		return fmt.Errorf("failed to init request: %w", err)
 	}

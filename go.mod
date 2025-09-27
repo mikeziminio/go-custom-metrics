@@ -3,6 +3,7 @@ module github.com/mikeziminio/go-custom-metrics
 go 1.24.7
 
 require (
+	github.com/go-chi/chi/v5 v5.2.3
 	github.com/stretchr/testify v1.8.4
 	go.uber.org/zap v1.27.0
 	golang.org/x/sync v0.17.0
