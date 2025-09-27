@@ -9,6 +9,7 @@ tasks:
     desc: Build all
     cmds:
       - "go build -o {{.BIN}}/server ./cmd/server"
+      - "go build -o {{.BIN}}/agent ./cmd/agent"
 
   prepare-test:
     desc: Download and build yandex tests
@@ -23,6 +24,7 @@ tasks:
       - "go test -race ./..."
       - "task build"
       - "{{.BIN}}/metricstest -test.v -test.run=^TestIteration1$ -binary-path={{.BIN}}/server"
+      - "{{.BIN}}/metricstest -test.v -test.run=^TestIteration2[AB]*$ -source-path=. -agent-binary-path={{.BIN}}/agent"
 
   test:
     desc: Run local unit tests
@@ -33,7 +35,7 @@ tasks:
     desc: Format and fix imports
     cmds:
       - "gofmt -w ."
-      - "goimports -w ."
+      - "goimports -w -local \"github.com/mikeziminio/go-custom-metrics\" ."
 
   prepare-lint:
     desc: Install golangci-lint and nilaway, verify golangci-lint config
@@ -47,7 +49,8 @@ tasks:
     desc: Run custom linter binary with nilaway
     cmds:
       - "{{.BIN}}/golangci-lint run -c .golangci.yml" 
-      # - {{.BIN}}/nilaway
+      - "{{.BIN}}/nilaway ./cmd/server"
+      - "{{.BIN}}/nilaway ./cmd/agent"
 
   default:
     cmds:

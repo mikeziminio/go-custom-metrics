@@ -2,3 +2,6 @@
 /bin/*
 !/bin/.gitkeep
 
+# Temporary files
+/cmd/temp/
+

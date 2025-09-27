@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"go.uber.org/zap"
+
 	"github.com/mikeziminio/go-custom-metrics/internal/model"
 )
 
@@ -13,11 +15,13 @@ type Storage interface {
 
 type API struct {
 	storage Storage
+	logger  *zap.Logger
 }
 
-func StartServer(port int, storage Storage) error {
+func StartServer(port int, storage Storage, logger *zap.Logger) error {
 	api := &API{
 		storage: storage,
+		logger:  logger,
 	}
 
 	mux := http.NewServeMux()
