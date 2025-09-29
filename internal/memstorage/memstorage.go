@@ -44,7 +44,7 @@ func (s *MemStorage) Get(metricType model.MetricType, metricName string) (*model
 	defer s.mu.RUnlock()
 	m, ok := s.metrics[metricName]
 	if !ok {
-		return nil, model.MetricNotFoundErr
+		return nil, model.ErrMetricNotFound
 	}
 	return &m, nil
 }

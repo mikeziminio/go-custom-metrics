@@ -95,7 +95,7 @@ func (a *API) Get(res http.ResponseWriter, req *http.Request) {
 
 	m, err := a.storage.Get(metricType, metricName)
 	if err != nil {
-		if errors.Is(err, model.MetricNotFoundErr) {
+		if errors.Is(err, model.ErrMetricNotFound) {
 			res.WriteHeader(http.StatusNotFound)
 			return
 		}

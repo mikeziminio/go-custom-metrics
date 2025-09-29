@@ -29,4 +29,4 @@ type Metric struct {
 	Hash  string     `json:"hash,omitempty"`
 }
 
-var MetricNotFoundErr = errors.New("metric not found")
+var ErrMetricNotFound = errors.New("metric not found")

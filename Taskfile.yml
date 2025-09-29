@@ -23,11 +23,12 @@ tasks:
       - "go build -o {{.BIN}}/agent ./cmd/agent"
       - "{{.BIN}}/agent"
 
-  prepare-test:
-    desc: Download and build yandex tests
+  prepare-yandex:
+    desc: Download and build yandex tests and linters
     cmds:
       - "git clone git@github.com:Yandex-Practicum/go-autotests.git ./tmp-go-autotests"
-      - "(cd ./tmp-go-autotests && go test -c ./cmd/metricstest -o {{.BIN}}/metricstest)"
+      - "(cd ./tmp-go-autotests && go test -c -o {{.BIN}}/metricstest ./cmd/metricstest)"
+      - "(cd ./tmp-go-autotests && go build -o {{.BIN}}/statictest ./cmd/statictest)"
       - "rm -r -f ./tmp-go-autotests"
 
   test-all:
@@ -59,8 +60,9 @@ tasks:
       - "{{.BIN}}/golangci-lint config verify"
 
   lint:
-    desc: Run custom linter binary with nilaway
+    desc: Run yandex and local linters 
     cmds:
+      - "go vet -vettool={{.BIN}}/statictest ./..."
       - "{{.BIN}}/golangci-lint run -c .golangci.yml" 
       - "{{.BIN}}/nilaway ./cmd/server"
       - "{{.BIN}}/nilaway ./cmd/agent"
