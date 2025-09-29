@@ -49,8 +49,8 @@ var (
 )
 
 type Agent struct {
-	pollInterval   int
-	reportInterval int
+	pollInterval   float64
+	reportInterval float64
 	gauges         map[string]float64
 	counters       map[string]int64
 	mu             sync.RWMutex
@@ -61,9 +61,9 @@ type Agent struct {
 }
 
 func New(
-	baseeURL string,
-	pollInterval int,
-	reportInterval int,
+	baseURL string,
+	pollInterval float64,
+	reportInterval float64,
 	concurrentRequests int,
 	logger *zap.Logger,
 ) *Agent {
@@ -74,7 +74,7 @@ func New(
 		gauges:         make(map[string]float64),
 		counters:       make(map[string]int64),
 		client:         client,
-		baseURL:        baseeURL,
+		baseURL:        baseURL,
 		sem:            semaphore.NewWeighted(int64(concurrentRequests)),
 		logger:         logger,
 	}
@@ -199,7 +199,7 @@ func (a *Agent) Run(ctx context.Context) {
 	go func() {
 		defer wg.Done()
 		for {
-			time.Sleep(time.Second * time.Duration(a.pollInterval))
+			time.Sleep(time.Millisecond * time.Duration(a.pollInterval*1000))
 			a.Collect()
 		}
 	}()
@@ -207,7 +207,7 @@ func (a *Agent) Run(ctx context.Context) {
 	go func() {
 		defer wg.Done()
 		for {
-			time.Sleep(time.Second * time.Duration(a.reportInterval))
+			time.Sleep(time.Millisecond * time.Duration(a.reportInterval*1000))
 			a.SendAll(ctx)
 		}
 	}()

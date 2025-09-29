@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -21,7 +20,7 @@ type API struct {
 	logger  *zap.Logger
 }
 
-func StartServer(port int, storage Storage, logger *zap.Logger) error {
+func StartServer(address string, storage Storage, logger *zap.Logger) error {
 	api := &API{
 		storage: storage,
 		logger:  logger,
@@ -32,6 +31,6 @@ func StartServer(port int, storage Storage, logger *zap.Logger) error {
 	r.Get("/value/{metricType}/{metricName}", api.Get)
 	r.Post("/update/{metricType}/{metricName}/{value}", api.Update)
 
-	err := http.ListenAndServe(fmt.Sprintf(":%d", port), r)
+	err := http.ListenAndServe(address, r)
 	return err
 }

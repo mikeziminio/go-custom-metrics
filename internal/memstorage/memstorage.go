@@ -22,6 +22,12 @@ func New() *MemStorage {
 }
 
 func (s *MemStorage) Update(m model.Metric) error {
+	// todo: next sprint
+	// в текущем спринте не дается никаких требований на хранение метрик
+	// поэтому сейчас метрики типа Gauge перезатирают значение,
+	// а метрики типа Counter инкрементируют значение.
+	// Вероятно далее необходимо будет сохранять значение с конкретной
+	// временной меткой, но в рамках 1-го спринта это избыточно.
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	// s.metrics = append(s.metrics, m)
@@ -34,6 +40,10 @@ func (s *MemStorage) Update(m model.Metric) error {
 }
 
 func (s *MemStorage) List() map[string]model.Metric {
+	// todo: next sprints
+	// Возвращает копию мапы с метриками - не самый оптимальный вариант,
+	// Но т.к. требования к структуре хранения метрик вероятно будет
+	// обновлено в следующих спринтах - для упрощения пока сделано так.
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return maps.Clone(s.metrics)

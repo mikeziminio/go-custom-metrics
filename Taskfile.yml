@@ -15,13 +15,13 @@ tasks:
     desc: Run server
     cmds:
       - "go build -o {{.BIN}}/server ./cmd/server"
-      - "{{.BIN}}/server"
+      - "{{.BIN}}/server {{.CLI_ARGS}}"
 
   agent:
     desc: Run server
     cmds:
       - "go build -o {{.BIN}}/agent ./cmd/agent"
-      - "{{.BIN}}/agent"
+      - "{{.BIN}}/agent {{.CLI_ARGS}}"
 
   prepare-yandex:
     desc: Download and build yandex tests and linters
@@ -29,16 +29,23 @@ tasks:
       - "git clone git@github.com:Yandex-Practicum/go-autotests.git ./tmp-go-autotests"
       - "(cd ./tmp-go-autotests && go test -c -o {{.BIN}}/metricstest ./cmd/metricstest)"
       - "(cd ./tmp-go-autotests && go build -o {{.BIN}}/statictest ./cmd/statictest)"
+      - "(cd ./tmp-go-autotests && go build -o {{.BIN}}/random ./cmd/random)"
       - "rm -r -f ./tmp-go-autotests"
 
   test-all:
     desc: Run all tests
+    vars:
+      SERVER_PORT:
+        sh: ./bin/random unused-port
+      TEMP_FILE:
+        sh: ./bin/random tempfile
     cmds:
       - "go test -race ./..."
       - "task build"
       - "{{.BIN}}/metricstest -test.v -test.run=^TestIteration1$ -binary-path={{.BIN}}/server"
       - "{{.BIN}}/metricstest -test.v -test.run=^TestIteration2[AB]*$ -source-path=. -agent-binary-path={{.BIN}}/agent"
       - "{{.BIN}}/metricstest -test.v -test.run=^TestIteration3[AB]*$ -source-path=. -agent-binary-path={{.BIN}}/agent -binary-path={{.BIN}}/server"
+      - "SERVER_PORT={{.SERVER_PORT}} ADDRESS=localhost:{{.SERVER_PORT}} TEMP_FILE={{.TEMP_FILE}} {{.BIN}}/metricstest -test.v -test.run=^TestIteration4$ -agent-binary-path={{.BIN}}/agent -binary-path={{.BIN}}/server -server-port={{.SERVER_PORT}} -source-path=."
 
   test:
     desc: Run local unit tests
