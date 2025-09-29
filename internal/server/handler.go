@@ -13,8 +13,7 @@ import (
 	"github.com/mikeziminio/go-custom-metrics/internal/model"
 )
 
-// Update implement handler for /update/{metricType}/{metricName}/{value}/
-func (a *API) Update(res http.ResponseWriter, req *http.Request) {
+func (a *APIServer) Update(res http.ResponseWriter, req *http.Request) {
 	a.logger.Info("request start", zap.String("path", req.URL.Path))
 
 	mt := chi.URLParam(req, "metricType")
@@ -51,7 +50,6 @@ func (a *API) Update(res http.ResponseWriter, req *http.Request) {
 		MType: metricType,
 		Delta: delta,
 		Value: value,
-		Hash:  "",
 	})
 	if err != nil {
 		res.WriteHeader(http.StatusBadRequest)
@@ -62,7 +60,7 @@ func (a *API) Update(res http.ResponseWriter, req *http.Request) {
 	a.logger.Info("request end")
 }
 
-func (a *API) List(res http.ResponseWriter, req *http.Request) {
+func (a *APIServer) List(res http.ResponseWriter, req *http.Request) {
 	a.logger.Info("request start", zap.String("path", req.URL.Path))
 
 	var b bytes.Buffer
@@ -82,7 +80,7 @@ func (a *API) List(res http.ResponseWriter, req *http.Request) {
 	res.Write(b.Bytes())
 }
 
-func (a *API) Get(res http.ResponseWriter, req *http.Request) {
+func (a *APIServer) Get(res http.ResponseWriter, req *http.Request) {
 	a.logger.Info("request start", zap.String("path", req.URL.Path))
 
 	mt := chi.URLParam(req, "metricType")

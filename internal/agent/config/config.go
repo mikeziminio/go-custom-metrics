@@ -11,7 +11,7 @@ type Config struct {
 	ConcurrentRequests int
 }
 
-func NewFromFlags() (*Config, error) {
+func NewFromFlags() *Config {
 	c := Config{}
 
 	// todo: next sprints
@@ -29,5 +29,5 @@ func NewFromFlags() (*Config, error) {
 	flag.Float64Var(&c.PollInterval, "p", 2.0, "частота опроса метрик")
 	flag.Parse()
 
-	return &c, nil
+	return &c
 }

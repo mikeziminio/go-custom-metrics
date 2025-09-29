@@ -10,9 +10,10 @@ import (
 )
 
 func main() {
-	c, _ := config.NewFromFlags()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	c := config.NewFromFlags()
 	logger := log.New()
 	a := agent.New(
 		fmt.Sprintf("http://%s", c.Address),
@@ -21,5 +22,6 @@ func main() {
 		c.ConcurrentRequests,
 		logger,
 	)
+
 	a.Run(ctx)
 }

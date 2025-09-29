@@ -1,7 +1,7 @@
 package main
 
 import (
-	"go.uber.org/zap"
+	"context"
 
 	"github.com/mikeziminio/go-custom-metrics/internal/log"
 	"github.com/mikeziminio/go-custom-metrics/internal/memstorage"
@@ -10,11 +10,13 @@ import (
 )
 
 func main() {
-	c, _ := config.NewFromFlags()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	c := config.NewFromFlags()
 	logger := log.New()
 	ms := memstorage.New()
-	err := server.StartServer(c.Address, ms, logger)
-	if err != nil {
-		logger.Fatal("failed to start server", zap.Error(err))
-	}
+
+	server := server.New(c.Address, ms, logger)
+	server.Run(ctx)
 }

@@ -6,8 +6,11 @@ import (
 	"math/rand/v2"
 	"net/http"
 	"net/url"
+	"os"
+	"os/signal"
 	"runtime"
 	"sync"
+	"syscall"
 	"time"
 
 	"go.uber.org/zap"
@@ -157,6 +160,8 @@ func (a *Agent) Send(ctx context.Context, m *model.Metric) error {
 	return nil
 }
 
+// SerndAll - отправляет все метрики на сервер
+// В случае возникновения ошибок при отправке - просто выводит их в лог
 func (a *Agent) SendAll(ctx context.Context) {
 	var wg sync.WaitGroup
 	wg.Add(len(a.gauges))
@@ -170,7 +175,7 @@ func (a *Agent) SendAll(ctx context.Context) {
 			}
 			err := a.Send(ctx, &m)
 			if err != nil {
-				a.logger.Fatal("failed to send metric", zap.Error(err))
+				a.logger.Error("failed to send metric", zap.Error(err))
 			}
 		}()
 	}
@@ -185,7 +190,7 @@ func (a *Agent) SendAll(ctx context.Context) {
 			}
 			err := a.Send(ctx, &m)
 			if err != nil {
-				a.logger.Fatal("failed to send metric", zap.Error(err))
+				a.logger.Error("failed to send metric", zap.Error(err))
 			}
 		}()
 	}
@@ -193,24 +198,45 @@ func (a *Agent) SendAll(ctx context.Context) {
 }
 
 func (a *Agent) Run(ctx context.Context) {
+	ctx, cancel := context.WithCancel(ctx)
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigChan
+		a.logger.Info("Agent stopped")
+		cancel()
+	}()
+
 	var wg sync.WaitGroup
-
 	wg.Add(2)
+
 	go func() {
 		defer wg.Done()
+		ticker := time.NewTicker(time.Millisecond * time.Duration(a.pollInterval*1000))
 		for {
-			time.Sleep(time.Millisecond * time.Duration(a.pollInterval*1000))
-			a.Collect()
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				a.Collect()
+			}
 		}
 	}()
 
 	go func() {
 		defer wg.Done()
+		ticker := time.NewTicker(time.Millisecond * time.Duration(a.reportInterval*1000))
 		for {
-			time.Sleep(time.Millisecond * time.Duration(a.reportInterval*1000))
-			a.SendAll(ctx)
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				a.SendAll(ctx)
+			}
 		}
 	}()
 
+	a.logger.Info("Agent started", zap.String("baseURL", a.baseURL))
 	wg.Wait()
 }
