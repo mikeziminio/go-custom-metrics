@@ -17,6 +17,7 @@ func main() {
 	logger := log.New()
 	ms := memstorage.New()
 
-	server := server.New(c.Address, ms, logger)
-	server.Run(ctx)
+	s := server.New(c.Address, ms, logger)
+	s.RegisterRoutes()
+	s.Run(ctx)
 }

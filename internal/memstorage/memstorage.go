@@ -30,7 +30,6 @@ func (s *MemStorage) Update(m model.Metric) error {
 	// временной меткой, но в рамках 1-го спринта это избыточно.
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	// s.metrics = append(s.metrics, m)
 	current, ok := s.metrics[m.ID]
 	if ok && m.MType == model.Counter {
 		*m.Delta += *current.Delta
@@ -53,7 +52,7 @@ func (s *MemStorage) Get(metricType model.MetricType, metricName string) (*model
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	m, ok := s.metrics[metricName]
-	if !ok {
+	if !ok || m.MType != metricType {
 		return nil, model.ErrMetricNotFound
 	}
 	return &m, nil

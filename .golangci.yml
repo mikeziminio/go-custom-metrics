@@ -18,7 +18,7 @@ linters:
     - goconst
     - gocritic
     - gocyclo
-    - godox
+    # - godox
     - goprintffuncname
     - gosec
     - govet

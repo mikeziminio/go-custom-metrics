@@ -213,7 +213,7 @@ func (a *Agent) Run(ctx context.Context) {
 
 	go func() {
 		defer wg.Done()
-		ticker := time.NewTicker(time.Millisecond * time.Duration(a.pollInterval*1000))
+		ticker := time.NewTicker(time.Duration(float64(time.Second) * a.pollInterval))
 		for {
 			select {
 			case <-ctx.Done():
@@ -226,7 +226,7 @@ func (a *Agent) Run(ctx context.Context) {
 
 	go func() {
 		defer wg.Done()
-		ticker := time.NewTicker(time.Millisecond * time.Duration(a.reportInterval*1000))
+		ticker := time.NewTicker(time.Duration(float64(time.Second) * a.reportInterval))
 		for {
 			select {
 			case <-ctx.Done():

@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/mikeziminio/go-custom-metrics/internal/model"
 )
 
@@ -76,8 +76,11 @@ func (a *APIServer) List(res http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	res.WriteHeader(http.StatusOK)
-	res.Write(b.Bytes())
+	_, err := res.Write(b.Bytes())
+	if err != nil {
+		res.WriteHeader(http.StatusInternalServerError)
+		a.logger.Error("failed to write body", zap.Error(err))
+	}
 }
 
 func (a *APIServer) Get(res http.ResponseWriter, req *http.Request) {
@@ -101,7 +104,6 @@ func (a *APIServer) Get(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	res.WriteHeader(http.StatusOK)
 	var r string
 	if m.MType == model.Gauge {
 		r = strconv.FormatFloat(*m.Value, 'f', -1, 64)
@@ -109,5 +111,9 @@ func (a *APIServer) Get(res http.ResponseWriter, req *http.Request) {
 		r = fmt.Sprintf("%d", *m.Delta)
 	}
 
-	res.Write([]byte(r))
+	_, err = res.Write([]byte(r))
+	if err != nil {
+		res.WriteHeader(http.StatusInternalServerError)
+		a.logger.Error("failed to write body", zap.Error(err))
+	}
 }

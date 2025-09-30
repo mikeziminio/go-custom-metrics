@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
@@ -28,6 +29,7 @@ type Storage interface {
 
 type APIServer struct {
 	storage    Storage
+	router     *chi.Mux
 	httpServer *http.Server
 	logger     *zap.Logger
 }
@@ -36,21 +38,28 @@ func New(address string, storage Storage, logger *zap.Logger) *APIServer {
 	r := chi.NewRouter()
 
 	httpServer := &http.Server{
-		Addr:    address,
-		Handler: r,
+		Addr:              address,
+		Handler:           r,
+		ReadTimeout:       2 * time.Second,
+		ReadHeaderTimeout: 1 * time.Second,
 	}
 
 	a := &APIServer{
 		storage:    storage,
+		router:     r,
 		httpServer: httpServer,
 		logger:     logger,
 	}
 
+	return a
+}
+
+func (a *APIServer) RegisterRoutes() {
+	r := a.router
+
 	r.Get("/", a.List)
 	r.Get("/value/{metricType}/{metricName}", a.Get)
 	r.Post("/update/{metricType}/{metricName}/{value}", a.Update)
-
-	return a
 }
 
 func (a *APIServer) Run(ctx context.Context) {
@@ -67,7 +76,10 @@ func (a *APIServer) Run(ctx context.Context) {
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-	<-sigChan
+	select {
+	case <-sigChan:
+	case <-ctx.Done():
+	}
 
 	err := a.httpServer.Shutdown(context.Background())
 	if err != nil {
