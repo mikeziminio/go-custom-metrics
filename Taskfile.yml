@@ -45,7 +45,8 @@ tasks:
       # - "$BIN/metricstest -test.v -test.run=^TestIteration2[AB]*$ -source-path=. -agent-binary-path=$BIN/agent"
       # - "$BIN/metricstest -test.v -test.run=^TestIteration3[AB]*$ -source-path=. -agent-binary-path=$BIN/agent -binary-path=$BIN/server"
       # - "SERVER_PORT={{.SERVER_PORT}} ADDRESS=localhost:{{.SERVER_PORT}} TEMP_FILE={{.TEMP_FILE}} $BIN/metricstest -test.v -test.run=^TestIteration4$ -agent-binary-path=$BIN/agent -binary-path=$BIN/server -server-port={{.SERVER_PORT}} -source-path=."
-      - "SERVER_PORT={{.SERVER_PORT}} ADDRESS=localhost:{{.SERVER_PORT}} TEMP_FILE={{.TEMP_FILE}} $BIN/metricstest -test.v -test.run=^TestIteration5$ -agent-binary-path=$BIN/agent -binary-path=$BIN/server -server-port={{.SERVER_PORT}} -source-path=."
+      # - "SERVER_PORT={{.SERVER_PORT}} ADDRESS=localhost:{{.SERVER_PORT}} TEMP_FILE={{.TEMP_FILE}} $BIN/metricstest -test.v -test.run=^TestIteration5$ -agent-binary-path=$BIN/agent -binary-path=$BIN/server -server-port={{.SERVER_PORT}} -source-path=."
+      - "SERVER_PORT={{.SERVER_PORT}} ADDRESS=localhost:{{.SERVER_PORT}} TEMP_FILE={{.TEMP_FILE}} $BIN/metricstest -test.v -test.run=^TestIteration6$ -agent-binary-path=$BIN/agent -binary-path=$BIN/server -server-port={{.SERVER_PORT}} -source-path=."
 
   test:
     desc: Run local unit tests

@@ -2,6 +2,7 @@ package config
 
 import (
 	"flag"
+	"log"
 
 	"github.com/kelseyhightower/envconfig"
 )
@@ -17,7 +18,10 @@ func NewFromFlags() *Config {
 
 	// по ТЗ переменные среды перезаписывают флаги
 	// хоть это и не логично - c т.з. пользовательского опыта должно быть наоборот :)
-	envconfig.Process("", &c)
+	err := envconfig.Process("", &c)
+	if err != nil {
+		log.Fatalf("failed to process envs: %v", err)
+	}
 
 	return &c
 }

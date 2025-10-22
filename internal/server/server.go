@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 
+	"github.com/mikeziminio/go-custom-metrics/internal/log"
 	"github.com/mikeziminio/go-custom-metrics/internal/model"
 )
 
@@ -56,6 +57,10 @@ func New(address string, storage Storage, logger *zap.Logger) *APIServer {
 
 func (a *APIServer) RegisterRoutes() {
 	r := a.router
+
+	lmw := log.NewLoggerMiddleware(a.logger)
+
+	r.Use(lmw.MiddlewareHandler)
 
 	r.Get("/", a.List)
 	r.Get("/value/{metricType}/{metricName}", a.Get)
