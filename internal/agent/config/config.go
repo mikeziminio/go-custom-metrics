@@ -2,12 +2,14 @@ package config
 
 import (
 	"flag"
+
+	"github.com/kelseyhightower/envconfig"
 )
 
 type Config struct {
-	Address            string
-	ReportInterval     float64
-	PollInterval       float64
+	Address            string  `envconfig:"ADDRESS"`
+	ReportInterval     float64 `envconfig:"REPORT_INTERVAL"`
+	PollInterval       float64 `envconfig:"POLL_INTERVAL"`
 	ConcurrentRequests int
 }
 
@@ -20,9 +22,6 @@ var (
 func NewFromFlags() *Config {
 	c := Config{}
 
-	// todo: next sprints
-	// видимо в следующих спринтах будет расширение конфигов (через env)
-	// сейчас те что не задаются через флаги - просто хардкодятся
 	c.ConcurrentRequests = DefaultConcurrentRequests
 
 	flag.StringVar(&c.Address, "a", "localhost:8080", "хост:порт http сервера")
@@ -34,6 +33,10 @@ func NewFromFlags() *Config {
 	)
 	flag.Float64Var(&c.PollInterval, "p", DefaultPollInterval, "частота опроса метрик")
 	flag.Parse()
+
+	// по ТЗ переменные среды перезаписывают флаги
+	// хоть это и не логично - c т.з. пользовательского опыта должно быть наоборот :)
+	envconfig.Process("", &c)
 
 	return &c
 }
