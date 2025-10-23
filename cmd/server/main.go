@@ -20,7 +20,7 @@ func main() {
 	if c.StoreInterval == 0 {
 		syncWithUpdate = true
 	}
-	ms := memstorage.New(syncWithUpdate, c.FileStoragePath)
+	ms := memstorage.New(syncWithUpdate, c.FileStoragePath, logger)
 
 	s := server.New(
 		c.Address,

@@ -7,6 +7,7 @@ import (
 
 	"github.com/mikeziminio/go-custom-metrics/internal/model"
 	"github.com/mikeziminio/go-custom-metrics/internal/server"
+	"go.uber.org/zap"
 )
 
 type MemStorage struct {
@@ -14,15 +15,17 @@ type MemStorage struct {
 	mu              sync.RWMutex
 	syncWithUpdate  bool
 	fileStoragePath string
+	logger          *zap.Logger
 }
 
 var _ server.Storage = (*MemStorage)(nil)
 
-func New(syncWithUpdate bool, fileStoragePath string) *MemStorage {
+func New(syncWithUpdate bool, fileStoragePath string, logger *zap.Logger) *MemStorage {
 	return &MemStorage{
 		syncWithUpdate:  syncWithUpdate,
 		fileStoragePath: fileStoragePath,
 		metrics:         make(map[string]model.Metric),
+		logger:          logger,
 	}
 }
 

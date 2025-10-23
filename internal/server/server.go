@@ -117,11 +117,13 @@ func (a *APIServer) Run(ctx context.Context) {
 			a.logger.Info("File sync started",
 				zap.Duration("storeInterval", a.storeInterval),
 			)
-			select {
-			case <-t.C:
-				a.storage.Sync()
-			case <-ctx.Done():
-				return
+			for {
+				select {
+				case <-t.C:
+					a.storage.Sync()
+				case <-ctx.Done():
+					return
+				}
 			}
 		}()
 	}

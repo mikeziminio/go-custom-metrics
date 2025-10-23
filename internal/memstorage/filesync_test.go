@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"github.com/mikeziminio/go-custom-metrics/internal/model"
 	"github.com/mikeziminio/go-custom-metrics/internal/test/helper"
@@ -63,7 +64,7 @@ func TestSync(t *testing.T) {
 			tmpDir := t.TempDir()
 			tmpFile := filepath.Join(tmpDir, "metrics.json")
 
-			ms := New(false, tmpFile)
+			ms := New(false, tmpFile, zap.L())
 			// Initialize with test metrics
 			for _, metric := range tc.metrics {
 				_, err := ms.Update(metric)
@@ -147,8 +148,8 @@ func TestRestore(t *testing.T) {
 			setupFile: func(filename string) {
 				// Ничего не делаем, файл не будет существовать
 			},
-			expectedError:   true,
-			expectedMetrics: nil,
+			expectedError:   false,
+			expectedMetrics: make(map[string]model.Metric),
 		},
 		{
 			name: "восстановление из файла с некорректным JSON",
@@ -169,7 +170,7 @@ func TestRestore(t *testing.T) {
 			// Подготавливаем тестовый файл
 			tc.setupFile(tmpFile)
 
-			ms := New(false, tmpFile)
+			ms := New(false, tmpFile, zap.L())
 
 			// Тестируем метод Restore
 			err := ms.Restore()

@@ -8,15 +8,20 @@ import (
 	"slices"
 
 	"github.com/mikeziminio/go-custom-metrics/internal/model"
+	"go.uber.org/zap"
 )
 
 func (s *MemStorage) Restore() error {
+	s.logger.Info("Start restore from file",
+		zap.String("fileStoragePath", s.fileStoragePath),
+	)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	data, err := os.ReadFile(s.fileStoragePath)
 	if err != nil {
-		return fmt.Errorf("failed to read from %s", s.fileStoragePath)
+		return nil
+		// return fmt.Errorf("failed to read from %s", s.fileStoragePath)
 	}
 
 	var metricList []model.Metric
@@ -35,6 +40,9 @@ func (s *MemStorage) Restore() error {
 }
 
 func (s *MemStorage) Sync() error {
+	s.logger.Info("Start sync with file",
+		zap.String("fileStoragePath", s.fileStoragePath),
+	)
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -44,7 +52,7 @@ func (s *MemStorage) Sync() error {
 		return fmt.Errorf("failed to marshal metrics: %w", err)
 	}
 
-	err = os.WriteFile(s.fileStoragePath, data, 0644)
+	err = os.WriteFile(s.fileStoragePath, data, 0755)
 	if err != nil {
 		return fmt.Errorf("failed to write %d bytes to %s",
 			len(data), s.fileStoragePath)

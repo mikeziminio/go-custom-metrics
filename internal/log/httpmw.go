@@ -45,10 +45,8 @@ func (m *LoggerMiddleware) MiddlewareHandler(next http.Handler) http.Handler {
 
 		wrapped := &responseWriter{ResponseWriter: w, defaultStatusCode: http.StatusOK}
 
-		m.logger.Info("Request started",
-			zap.String("method", r.Method),
-			zap.String("url", r.URL.String()),
-		)
+		m.logger.Info("Request started") // zap.String("method", r.Method),
+		// zap.String("url", r.URL.String()),
 
 		next.ServeHTTP(wrapped, r)
 		// duration по ТЗ пишет в риквест, но это не логично
@@ -56,10 +54,10 @@ func (m *LoggerMiddleware) MiddlewareHandler(next http.Handler) http.Handler {
 		duration := time.Since(start)
 
 		m.logger.Info("Request completed",
-			zap.String("method", r.Method),
-			zap.String("url", r.URL.String()),
-			zap.Int("status_code", wrapped.defaultStatusCode),
-			zap.Int("bytes_written", wrapped.bytesWritten),
+			// zap.String("method", r.Method),
+			// zap.String("url", r.URL.String()),
+			// zap.Int("status_code", wrapped.defaultStatusCode),
+			// zap.Int("bytes_written", wrapped.bytesWritten),
 			zap.Duration("duration", duration),
 		)
 	})

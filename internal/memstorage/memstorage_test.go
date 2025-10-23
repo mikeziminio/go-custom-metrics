@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"github.com/mikeziminio/go-custom-metrics/internal/model"
 	"github.com/mikeziminio/go-custom-metrics/internal/test/helper"
@@ -169,7 +170,7 @@ func TestUpdate(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ms := New(false, "")
+			ms := New(false, "", zap.L())
 			// Initialize with initial metrics
 			for _, v := range tc.initialMetrics {
 				_, err := ms.Update(v)
@@ -187,7 +188,7 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestGetCounter(t *testing.T) {
-	ms := New(false, "")
+	ms := New(false, "", zap.L())
 	_, err := ms.Update(model.Metric{
 		ID:    "some",
 		MType: model.Counter,
@@ -228,7 +229,7 @@ func TestGetCounter(t *testing.T) {
 }
 
 func TestGetGauge(t *testing.T) {
-	ms := New(false, "")
+	ms := New(false, "", zap.L())
 	_, err := ms.Update(model.Metric{
 		ID:    "some",
 		MType: model.Gauge,
@@ -269,7 +270,7 @@ func TestGetGauge(t *testing.T) {
 }
 
 func TestList(t *testing.T) {
-	ms := New(false, "")
+	ms := New(false, "", zap.L())
 	_, err := ms.Update(model.Metric{
 		ID:    "some",
 		MType: model.Counter,
