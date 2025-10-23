@@ -20,6 +20,7 @@ func main() {
 		c.PollInterval,
 		c.ReportInterval,
 		c.ConcurrentRequests,
+		c.UseCompress,
 		logger,
 	)
 

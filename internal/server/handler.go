@@ -54,6 +54,7 @@ func (a *APIServer) Update(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	res.Header().Set("Content-Type", "application/json")
 	_, err = res.Write(resData)
 	if err != nil {
 		http.Error(res, fmt.Sprintf("failed to write body: %v", err),
@@ -187,6 +188,7 @@ func (a *APIServer) GetByParams(res http.ResponseWriter, req *http.Request) {
 		r = fmt.Sprintf("%d", *m.Delta)
 	}
 
+	res.Header().Set("Content-Type", "text/html")
 	_, err = res.Write([]byte(r))
 	if err != nil {
 		http.Error(res, fmt.Sprintf("failed to write body: %v", err),
@@ -208,6 +210,7 @@ func (a *APIServer) List(res http.ResponseWriter, req *http.Request) {
 		}
 	}
 
+	res.Header().Set("Content-Type", "text/html")
 	_, err := res.Write(b.Bytes())
 	if err != nil {
 		http.Error(res, fmt.Sprintf("failed to write body: %v", err),

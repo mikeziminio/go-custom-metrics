@@ -9,14 +9,13 @@ import (
 
 type responseWriter struct {
 	http.ResponseWriter
-	statusCode   int
-	written      bool
-	bytesWritten int
+	defaultStatusCode int
+	written           bool
+	bytesWritten      int
 }
 
 func (rw *responseWriter) WriteHeader(code int) {
 	if !rw.written {
-		rw.statusCode = code
 		rw.ResponseWriter.WriteHeader(code)
 		rw.written = true
 	}
@@ -24,8 +23,7 @@ func (rw *responseWriter) WriteHeader(code int) {
 
 func (rw *responseWriter) Write(data []byte) (int, error) {
 	if !rw.written {
-		rw.statusCode = http.StatusOK // статус по умолчанию
-		rw.written = true
+		rw.WriteHeader(rw.defaultStatusCode)
 	}
 	rw.bytesWritten += len(data)
 	return rw.ResponseWriter.Write(data)
@@ -45,7 +43,7 @@ func (m *LoggerMiddleware) MiddlewareHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 
-		wrapped := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
+		wrapped := &responseWriter{ResponseWriter: w, defaultStatusCode: http.StatusOK}
 
 		m.logger.Info("Request started",
 			zap.String("method", r.Method),
@@ -60,7 +58,7 @@ func (m *LoggerMiddleware) MiddlewareHandler(next http.Handler) http.Handler {
 		m.logger.Info("Request completed",
 			zap.String("method", r.Method),
 			zap.String("url", r.URL.String()),
-			zap.Int("status_code", wrapped.statusCode),
+			zap.Int("status_code", wrapped.defaultStatusCode),
 			zap.Int("bytes_written", wrapped.bytesWritten),
 			zap.Duration("duration", duration),
 		)

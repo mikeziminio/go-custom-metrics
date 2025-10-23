@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math/rand/v2"
 	"net/http"
 	"net/url"
@@ -18,6 +19,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/semaphore"
 
+	"github.com/mikeziminio/go-custom-metrics/internal/compress"
 	"github.com/mikeziminio/go-custom-metrics/internal/model"
 )
 
@@ -63,6 +65,7 @@ type Agent struct {
 	baseURL        string
 	sem            *semaphore.Weighted
 	logger         *zap.Logger
+	useCompress    bool
 }
 
 func New(
@@ -70,6 +73,7 @@ func New(
 	pollInterval float64,
 	reportInterval float64,
 	concurrentRequests int,
+	useCompress bool,
 	logger *zap.Logger,
 ) *Agent {
 	client := &http.Client{}
@@ -82,6 +86,7 @@ func New(
 		baseURL:        baseURL,
 		sem:            semaphore.NewWeighted(int64(concurrentRequests)),
 		logger:         logger,
+		useCompress:    useCompress,
 	}
 }
 
@@ -122,7 +127,7 @@ func (a *Agent) Collect() {
 	a.counters[MetricPollCount]++
 }
 
-func (a *Agent) Send(ctx context.Context, m *model.Metric) error {
+func (a *Agent) Send(ctx context.Context, m *model.Metric, useCompress bool) error {
 	a.logger.Info("send metric start", zap.String("metric", fmt.Sprintf("%v", m)))
 
 	u, err := url.JoinPath(a.baseURL, "/update")
@@ -134,10 +139,25 @@ func (a *Agent) Send(ctx context.Context, m *model.Metric) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal: %w", err)
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, bytes.NewBuffer(body))
-	req.Header.Set("Accept", "application/json")
+
+	var bodyReader io.Reader
+	bodyReader = bytes.NewReader(body)
+	if useCompress {
+		bodyReader = compress.CompressWithGZIP(bodyReader)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, bodyReader)
 	if err != nil {
 		return fmt.Errorf("failed to init request: %w", err)
+	}
+	req.Header.Set("Accept", "application/json")
+	if useCompress {
+		req.Header.Set("Content-Encoding", "gzip")
+
+		// сейчас в агенте ответ от сервера никаки не используется
+		// поэтому кода по распаковке в агенте нет
+		// но чтобы проходили тесты нужно чтобы сервер также отправлял
+		// в сжатом формате
+		req.Header.Set("Accept-Encoding", "gzip")
 	}
 	_ = a.sem.Acquire(ctx, 1)
 	defer a.sem.Release(1)
@@ -152,8 +172,8 @@ func (a *Agent) Send(ctx context.Context, m *model.Metric) error {
 	a.logger.Info("sent metric successfully",
 		zap.String("type", string(m.MType)),
 		zap.String("id", m.ID),
-		// zap.Float64("value", *m.Value),
-		// zap.Int64("counter", *m.Delta),
+		zap.Float64p("value", m.Value),
+		zap.Int64p("counter", m.Delta),
 	)
 
 	return nil
@@ -161,7 +181,7 @@ func (a *Agent) Send(ctx context.Context, m *model.Metric) error {
 
 // SerndAll - отправляет все метрики на сервер
 // В случае возникновения ошибок при отправке - просто выводит их в лог
-func (a *Agent) SendAll(ctx context.Context) {
+func (a *Agent) SendAll(ctx context.Context, useCompress bool) {
 	var wg sync.WaitGroup
 	wg.Add(len(a.gauges))
 	for name, val := range a.gauges {
@@ -172,7 +192,7 @@ func (a *Agent) SendAll(ctx context.Context) {
 				MType: model.Gauge,
 				Value: &val,
 			}
-			err := a.Send(ctx, &m)
+			err := a.Send(ctx, &m, useCompress)
 			if err != nil {
 				a.logger.Error("failed to send metric", zap.Error(err))
 			}
@@ -187,7 +207,7 @@ func (a *Agent) SendAll(ctx context.Context) {
 				MType: model.Counter,
 				Delta: &val,
 			}
-			err := a.Send(ctx, &m)
+			err := a.Send(ctx, &m, useCompress)
 			if err != nil {
 				a.logger.Error("failed to send metric", zap.Error(err))
 			}
@@ -231,7 +251,7 @@ func (a *Agent) Run(ctx context.Context) {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				a.SendAll(ctx)
+				a.SendAll(ctx, a.useCompress)
 			}
 		}
 	}()

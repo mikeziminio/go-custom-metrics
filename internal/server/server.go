@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 
+	"github.com/mikeziminio/go-custom-metrics/internal/compress"
 	"github.com/mikeziminio/go-custom-metrics/internal/log"
 	"github.com/mikeziminio/go-custom-metrics/internal/model"
 )
@@ -59,7 +60,11 @@ func (a *APIServer) RegisterRoutes() {
 	r := a.router
 
 	lmw := log.NewLoggerMiddleware(a.logger)
+
+	// r.Use(middleware.StripSlashes)
 	r.Use(lmw.MiddlewareHandler)
+	r.Use(compress.DecompressMiddlewareHandler)
+	r.Use(compress.CompressMiddlewareHandler)
 
 	r.Get("/", a.List)
 	r.Post("/value", a.Get)
