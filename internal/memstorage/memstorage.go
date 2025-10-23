@@ -1,6 +1,7 @@
 package memstorage
 
 import (
+	"fmt"
 	"maps"
 	"sync"
 
@@ -9,15 +10,19 @@ import (
 )
 
 type MemStorage struct {
-	metrics map[string]model.Metric
-	mu      sync.RWMutex
+	metrics         map[string]model.Metric
+	mu              sync.RWMutex
+	syncWithUpdate  bool
+	fileStoragePath string
 }
 
 var _ server.Storage = (*MemStorage)(nil)
 
-func New() *MemStorage {
+func New(syncWithUpdate bool, fileStoragePath string) *MemStorage {
 	return &MemStorage{
-		metrics: make(map[string]model.Metric),
+		syncWithUpdate:  syncWithUpdate,
+		fileStoragePath: fileStoragePath,
+		metrics:         make(map[string]model.Metric),
 	}
 }
 
@@ -35,6 +40,12 @@ func (s *MemStorage) Update(m model.Metric) (*model.Metric, error) {
 		*m.Delta += *current.Delta
 	}
 	s.metrics[m.ID] = m
+	if s.syncWithUpdate {
+		err := s.Sync()
+		if err != nil {
+			return nil, fmt.Errorf("failed to sync storage")
+		}
+	}
 	return &m, nil
 }
 

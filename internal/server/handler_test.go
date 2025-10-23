@@ -39,11 +39,7 @@ func TestUpdate(t *testing.T) {
 			},
 			storageReturnError: nil,
 			expectedStatus:     200,
-			expectedJSONBody: `{
-				"id": "some",
-				"type": "counter",
-				"delta": 8
-			}`,
+			expectedJSONBody:   `{"id":"some","type":"counter","delta":8}`,
 		},
 		{
 			name:        "update gauge value",
@@ -58,11 +54,7 @@ func TestUpdate(t *testing.T) {
 			},
 			storageReturnError: nil,
 			expectedStatus:     200,
-			expectedJSONBody: `{
-				"id": "some",
-				"type": "gauge",
-				"value": 8.1234
-			}`,
+			expectedJSONBody:   `{"id":"some","type":"gauge","value":8.1234}`,
 		},
 	}
 
@@ -73,7 +65,7 @@ func TestUpdate(t *testing.T) {
 				Return(tc.metric, tc.storageReturnError).
 				Twice()
 
-			server := New("", storage, zap.L())
+			server := New("", 0, false, storage, zap.L())
 			server.RegisterRoutes()
 
 			path := fmt.Sprintf("/update/%s/%s/%s", tc.metricType, tc.metricName, tc.metricValue)
@@ -139,11 +131,7 @@ func TestGet(t *testing.T) {
 			storageReturnError: nil,
 			expectedStatus:     200,
 			expectedTextBody:   "8",
-			expectedJSONBody: `{
-				"id": "some",
-				"type": "counter",
-				"delta": 8
-			}`,
+			expectedJSONBody:   `{"id":"some","type":"counter","delta":8}`,
 		},
 		{
 			name:       "gauge value",
@@ -158,11 +146,7 @@ func TestGet(t *testing.T) {
 			storageReturnError: nil,
 			expectedStatus:     200,
 			expectedTextBody:   "64.555",
-			expectedJSONBody: `{
-				"id": "some",
-				"type": "gauge",
-				"value": 64.555
-			}`,
+			expectedJSONBody:   `{"id":"some","type":"gauge","value":64.555}`,
 		},
 	}
 
@@ -173,7 +157,7 @@ func TestGet(t *testing.T) {
 				Return(tc.storageReturnMetric, tc.storageReturnError).
 				Twice()
 
-			server := New("", storage, zap.L())
+			server := New("", 0, false, storage, zap.L())
 			server.RegisterRoutes()
 
 			path := fmt.Sprintf("/value/%s/%s", tc.metricType, tc.metricName)
@@ -221,7 +205,7 @@ func TestList(t *testing.T) {
 		}).
 		Once()
 
-	server := New("", storage, zap.L())
+	server := New("", 0, false, storage, zap.L())
 	server.RegisterRoutes()
 
 	path := "/"

@@ -150,6 +150,94 @@ func (_c *MockStorage_List_Call) RunAndReturn(run func() map[string]model.Metric
 	return _c
 }
 
+// Restore provides a mock function for the type MockStorage
+func (_mock *MockStorage) Restore() error {
+	ret := _mock.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for Restore")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func() error); ok {
+		r0 = returnFunc()
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockStorage_Restore_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Restore'
+type MockStorage_Restore_Call struct {
+	*mock.Call
+}
+
+// Restore is a helper method to define mock.On call
+func (_e *MockStorage_Expecter) Restore() *MockStorage_Restore_Call {
+	return &MockStorage_Restore_Call{Call: _e.mock.On("Restore")}
+}
+
+func (_c *MockStorage_Restore_Call) Run(run func()) *MockStorage_Restore_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *MockStorage_Restore_Call) Return(err error) *MockStorage_Restore_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockStorage_Restore_Call) RunAndReturn(run func() error) *MockStorage_Restore_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Sync provides a mock function for the type MockStorage
+func (_mock *MockStorage) Sync() error {
+	ret := _mock.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for Sync")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func() error); ok {
+		r0 = returnFunc()
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockStorage_Sync_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Sync'
+type MockStorage_Sync_Call struct {
+	*mock.Call
+}
+
+// Sync is a helper method to define mock.On call
+func (_e *MockStorage_Expecter) Sync() *MockStorage_Sync_Call {
+	return &MockStorage_Sync_Call{Call: _e.mock.On("Sync")}
+}
+
+func (_c *MockStorage_Sync_Call) Run(run func()) *MockStorage_Sync_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *MockStorage_Sync_Call) Return(err error) *MockStorage_Sync_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockStorage_Sync_Call) RunAndReturn(run func() error) *MockStorage_Sync_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Update provides a mock function for the type MockStorage
 func (_mock *MockStorage) Update(m model.Metric) (*model.Metric, error) {
 	ret := _mock.Called(m)

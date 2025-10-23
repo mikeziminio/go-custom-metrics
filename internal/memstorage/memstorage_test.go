@@ -13,13 +13,13 @@ import (
 func TestUpdate(t *testing.T) {
 	testCases := []struct {
 		name            string
-		metrics         map[string]model.Metric
+		initialMetrics  map[string]model.Metric
 		updatedModel    model.Metric
 		expectedMetrics map[string]model.Metric
 	}{
 		{
-			name:    "add counter metric to empty map",
-			metrics: make(map[string]model.Metric),
+			name:           "add counter metric to empty map",
+			initialMetrics: make(map[string]model.Metric),
 			updatedModel: model.Metric{
 				ID:    "some",
 				MType: model.Counter,
@@ -37,7 +37,7 @@ func TestUpdate(t *testing.T) {
 		},
 		{
 			name: "add counter metric",
-			metrics: map[string]model.Metric{
+			initialMetrics: map[string]model.Metric{
 				"some": {
 					ID:    "some",
 					MType: model.Counter,
@@ -67,8 +67,8 @@ func TestUpdate(t *testing.T) {
 			},
 		},
 		{
-			name:    "add gauge metric to empty map",
-			metrics: make(map[string]model.Metric),
+			name:           "add gauge metric to empty map",
+			initialMetrics: make(map[string]model.Metric),
 			updatedModel: model.Metric{
 				ID:    "some",
 				MType: model.Gauge,
@@ -86,7 +86,7 @@ func TestUpdate(t *testing.T) {
 		},
 		{
 			name: "add gauge metric",
-			metrics: map[string]model.Metric{
+			initialMetrics: map[string]model.Metric{
 				"some": {
 					ID:    "some",
 					MType: model.Gauge,
@@ -117,7 +117,7 @@ func TestUpdate(t *testing.T) {
 		},
 		{
 			name: "update gauge metric",
-			metrics: map[string]model.Metric{
+			initialMetrics: map[string]model.Metric{
 				"some": {
 					ID:    "some",
 					MType: model.Gauge,
@@ -142,7 +142,7 @@ func TestUpdate(t *testing.T) {
 		},
 		{
 			name: "update counter metric",
-			metrics: map[string]model.Metric{
+			initialMetrics: map[string]model.Metric{
 				"some": {
 					ID:    "some",
 					MType: model.Counter,
@@ -169,17 +169,25 @@ func TestUpdate(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ms := New()
-			ms.metrics = tc.metrics
+			ms := New(false, "")
+			// Initialize with initial metrics
+			for _, v := range tc.initialMetrics {
+				_, err := ms.Update(v)
+				require.NoError(t, err)
+			}
+
 			_, err := ms.Update(tc.updatedModel)
 			require.NoError(t, err)
-			assert.Equal(t, tc.expectedMetrics, ms.metrics)
+
+			// Test by retrieving all metrics and comparing
+			result := ms.List()
+			assert.Equal(t, tc.expectedMetrics, result)
 		})
 	}
 }
 
 func TestGetCounter(t *testing.T) {
-	ms := New()
+	ms := New(false, "")
 	_, err := ms.Update(model.Metric{
 		ID:    "some",
 		MType: model.Counter,
@@ -220,7 +228,7 @@ func TestGetCounter(t *testing.T) {
 }
 
 func TestGetGauge(t *testing.T) {
-	ms := New()
+	ms := New(false, "")
 	_, err := ms.Update(model.Metric{
 		ID:    "some",
 		MType: model.Gauge,
@@ -261,7 +269,7 @@ func TestGetGauge(t *testing.T) {
 }
 
 func TestList(t *testing.T) {
-	ms := New()
+	ms := New(false, "")
 	_, err := ms.Update(model.Metric{
 		ID:    "some",
 		MType: model.Counter,
@@ -276,8 +284,9 @@ func TestList(t *testing.T) {
 		Value: helper.NewFloat64(t, 88),
 	})
 	require.NoError(t, err)
+
+	// Test List method - it should not return an error
 	m := ms.List()
-	require.NoError(t, err)
 	assert.Equal(t, map[string]model.Metric{
 		"some": {
 			ID:    "some",

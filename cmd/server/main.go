@@ -15,9 +15,20 @@ func main() {
 
 	c := config.NewFromFlags()
 	logger := log.New()
-	ms := memstorage.New()
 
-	s := server.New(c.Address, ms, logger)
+	var syncWithUpdate bool
+	if c.StoreInterval == 0 {
+		syncWithUpdate = true
+	}
+	ms := memstorage.New(syncWithUpdate, c.FileStoragePath)
+
+	s := server.New(
+		c.Address,
+		c.StoreInterval,
+		c.Restore,
+		ms,
+		logger,
+	)
 	s.RegisterRoutes()
 	s.Run(ctx)
 }
