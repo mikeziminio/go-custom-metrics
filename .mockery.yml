@@ -1,0 +1,19 @@
+all: false
+dir: '{{.InterfaceDir}}'
+force-file-write: true
+formatter: goimports
+include-auto-generated: false
+log-level: info
+structname: '{{.Mock}}{{.InterfaceName}}'
+pkgname: '{{.SrcPackageName}}'
+recursive: false
+require-template-schema-exists: true
+template: testify
+template-schema: '{{.Template}}.schema.json'
+packages:
+  github.com/mikeziminio/go-custom-metrics/internal/server:
+    interfaces:
+      Storage:
+        configs:
+          - filename: storage_mock_test.go
+
