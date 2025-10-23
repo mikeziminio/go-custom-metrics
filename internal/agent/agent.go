@@ -159,8 +159,8 @@ func (a *Agent) Send(ctx context.Context, m *model.Metric, useCompress bool) err
 		// в сжатом формате
 		req.Header.Set("Accept-Encoding", "gzip")
 	}
-	_ = a.sem.Acquire(ctx, 1)
-	defer a.sem.Release(1)
+	// _ = a.sem.Acquire(ctx, 1)
+	// defer a.sem.Release(1)
 	res, err := a.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to do request: %w", err)
