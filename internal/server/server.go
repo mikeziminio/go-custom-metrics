@@ -16,7 +16,7 @@ import (
 )
 
 type Storage interface {
-	Update(m model.Metric) error
+	Update(m model.Metric) (*model.Metric, error)
 	List() map[string]model.Metric
 	Get(metricType model.MetricType, metricName string) (*model.Metric, error)
 }
@@ -59,12 +59,15 @@ func (a *APIServer) RegisterRoutes() {
 	r := a.router
 
 	lmw := log.NewLoggerMiddleware(a.logger)
-
 	r.Use(lmw.MiddlewareHandler)
 
 	r.Get("/", a.List)
-	r.Get("/value/{metricType}/{metricName}", a.Get)
-	r.Post("/update/{metricType}/{metricName}/{value}", a.Update)
+	r.Post("/value", a.Get)
+	r.Post("/value/", a.Get)
+	r.Get("/value/{metricType}/{metricName}", a.GetByParams)
+	r.Post("/update", a.Update)
+	r.Post("/update/", a.Update)
+	r.Post("/update/{metricType}/{metricName}/{value}", a.UpdateByParams)
 }
 
 func (a *APIServer) Run(ctx context.Context) {

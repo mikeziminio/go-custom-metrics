@@ -17,7 +17,7 @@ type Config struct {
 var (
 	DefaultPollInterval       = 2.0
 	DefaultReportInterval     = 10.0
-	DefaultConcurrentRequests = 10
+	DefaultConcurrentRequests = 1000
 )
 
 func NewFromFlags() *Config {

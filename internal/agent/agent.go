@@ -1,7 +1,9 @@
 package agent
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/rand/v2"
 	"net/http"
@@ -122,26 +124,18 @@ func (a *Agent) Collect() {
 
 func (a *Agent) Send(ctx context.Context, m *model.Metric) error {
 	a.logger.Info("send metric start", zap.String("metric", fmt.Sprintf("%v", m)))
-	var u string
-	var err error
-	switch m.MType {
-	case model.Counter:
-		u, err = url.JoinPath(
-			a.baseURL, "/update",
-			fmt.Sprintf("/%s/%s/%d", string(m.MType), m.ID, *m.Delta),
-		)
-	case model.Gauge:
-		u, err = url.JoinPath(
-			a.baseURL, "/update",
-			fmt.Sprintf("/%s/%s/%.5f", string(m.MType), m.ID, *m.Value),
-		)
-	default:
-		panic(fmt.Sprintf("unknown metric type: %s", m.MType))
-	}
+
+	u, err := url.JoinPath(a.baseURL, "/update")
 	if err != nil {
 		return fmt.Errorf("failed to join url path for sending metric %s, %v", a.baseURL, m)
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, http.NoBody)
+
+	body, err := json.Marshal(m)
+	if err != nil {
+		return fmt.Errorf("failed to marshal: %w", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, bytes.NewBuffer(body))
+	req.Header.Set("Accept", "application/json")
 	if err != nil {
 		return fmt.Errorf("failed to init request: %w", err)
 	}
@@ -153,9 +147,14 @@ func (a *Agent) Send(ctx context.Context, m *model.Metric) error {
 	}
 	defer res.Body.Close() //nolint:errcheck // it's ok
 	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status code for request %s: %d", u, res.StatusCode)
+		return fmt.Errorf("unexpected status code for request: %d", res.StatusCode)
 	}
-	a.logger.Info("sent metric successfully", zap.String("url", u))
+	a.logger.Info("sent metric successfully",
+		zap.String("type", string(m.MType)),
+		zap.String("id", m.ID),
+		// zap.Float64("value", *m.Value),
+		// zap.Int64("counter", *m.Delta),
+	)
 
 	return nil
 }

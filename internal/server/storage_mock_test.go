@@ -5,9 +5,8 @@
 package server
 
 import (
-	mock "github.com/stretchr/testify/mock"
-
 	"github.com/mikeziminio/go-custom-metrics/internal/model"
+	mock "github.com/stretchr/testify/mock"
 )
 
 // NewMockStorage creates a new instance of MockStorage. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
@@ -152,20 +151,31 @@ func (_c *MockStorage_List_Call) RunAndReturn(run func() map[string]model.Metric
 }
 
 // Update provides a mock function for the type MockStorage
-func (_mock *MockStorage) Update(m model.Metric) error {
+func (_mock *MockStorage) Update(m model.Metric) (*model.Metric, error) {
 	ret := _mock.Called(m)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Update")
 	}
 
-	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(model.Metric) error); ok {
+	var r0 *model.Metric
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(model.Metric) (*model.Metric, error)); ok {
+		return returnFunc(m)
+	}
+	if returnFunc, ok := ret.Get(0).(func(model.Metric) *model.Metric); ok {
 		r0 = returnFunc(m)
 	} else {
-		r0 = ret.Error(0)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*model.Metric)
+		}
 	}
-	return r0
+	if returnFunc, ok := ret.Get(1).(func(model.Metric) error); ok {
+		r1 = returnFunc(m)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
 }
 
 // MockStorage_Update_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Update'
@@ -192,12 +202,12 @@ func (_c *MockStorage_Update_Call) Run(run func(m model.Metric)) *MockStorage_Up
 	return _c
 }
 
-func (_c *MockStorage_Update_Call) Return(err error) *MockStorage_Update_Call {
-	_c.Call.Return(err)
+func (_c *MockStorage_Update_Call) Return(metric *model.Metric, err error) *MockStorage_Update_Call {
+	_c.Call.Return(metric, err)
 	return _c
 }
 
-func (_c *MockStorage_Update_Call) RunAndReturn(run func(m model.Metric) error) *MockStorage_Update_Call {
+func (_c *MockStorage_Update_Call) RunAndReturn(run func(m model.Metric) (*model.Metric, error)) *MockStorage_Update_Call {
 	_c.Call.Return(run)
 	return _c
 }

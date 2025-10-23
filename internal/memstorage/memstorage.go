@@ -21,7 +21,7 @@ func New() *MemStorage {
 	}
 }
 
-func (s *MemStorage) Update(m model.Metric) error {
+func (s *MemStorage) Update(m model.Metric) (*model.Metric, error) {
 	// todo: next sprint
 	// в текущем спринте не дается никаких требований на хранение метрик
 	// поэтому сейчас метрики типа Gauge перезатирают значение,
@@ -35,7 +35,7 @@ func (s *MemStorage) Update(m model.Metric) error {
 		*m.Delta += *current.Delta
 	}
 	s.metrics[m.ID] = m
-	return nil
+	return &m, nil
 }
 
 func (s *MemStorage) List() map[string]model.Metric {

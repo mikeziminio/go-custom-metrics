@@ -171,7 +171,7 @@ func TestUpdate(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ms := New()
 			ms.metrics = tc.metrics
-			err := ms.Update(tc.updatedModel)
+			_, err := ms.Update(tc.updatedModel)
 			require.NoError(t, err)
 			assert.Equal(t, tc.expectedMetrics, ms.metrics)
 		})
@@ -180,21 +180,21 @@ func TestUpdate(t *testing.T) {
 
 func TestGetCounter(t *testing.T) {
 	ms := New()
-	err := ms.Update(model.Metric{
+	_, err := ms.Update(model.Metric{
 		ID:    "some",
 		MType: model.Counter,
 		Delta: helper.NewInt64(t, 1),
 		Value: nil,
 	})
 	require.NoError(t, err)
-	err = ms.Update(model.Metric{
+	_, err = ms.Update(model.Metric{
 		ID:    "other",
 		MType: model.Counter,
 		Delta: helper.NewInt64(t, 2),
 		Value: nil,
 	})
 	require.NoError(t, err)
-	err = ms.Update(model.Metric{
+	_, err = ms.Update(model.Metric{
 		ID:    "some",
 		MType: model.Counter,
 		Delta: helper.NewInt64(t, 3),
@@ -221,21 +221,21 @@ func TestGetCounter(t *testing.T) {
 
 func TestGetGauge(t *testing.T) {
 	ms := New()
-	err := ms.Update(model.Metric{
+	_, err := ms.Update(model.Metric{
 		ID:    "some",
 		MType: model.Gauge,
 		Delta: nil,
 		Value: helper.NewFloat64(t, 1),
 	})
 	require.NoError(t, err)
-	err = ms.Update(model.Metric{
+	_, err = ms.Update(model.Metric{
 		ID:    "other",
 		MType: model.Gauge,
 		Delta: nil,
 		Value: helper.NewFloat64(t, 2),
 	})
 	require.NoError(t, err)
-	err = ms.Update(model.Metric{
+	_, err = ms.Update(model.Metric{
 		ID:    "some",
 		MType: model.Gauge,
 		Delta: nil,
@@ -262,14 +262,14 @@ func TestGetGauge(t *testing.T) {
 
 func TestList(t *testing.T) {
 	ms := New()
-	err := ms.Update(model.Metric{
+	_, err := ms.Update(model.Metric{
 		ID:    "some",
 		MType: model.Counter,
 		Delta: helper.NewInt64(t, 1),
 		Value: nil,
 	})
 	require.NoError(t, err)
-	err = ms.Update(model.Metric{
+	_, err = ms.Update(model.Metric{
 		ID:    "other",
 		MType: model.Gauge,
 		Delta: nil,
