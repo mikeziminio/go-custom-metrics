@@ -50,14 +50,14 @@ func TestCompressMiddlewareHandler(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// простой обработчик обёрнутый в мидлварю
-			handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				w.Header().Set("Content-Type", "text/plain")
 				_, err := w.Write(testBody)
-				require.NoError(t, err)
+				assert.NoError(t, err)
 			})
 			wrappedHandler := CompressMiddlewareHandler(handler)
 
-			req := httptest.NewRequest("GET", "/", nil)
+			req := httptest.NewRequest("GET", "/", http.NoBody)
 			if tc.acceptEncoding != "" {
 				req.Header.Set("Accept-Encoding", tc.acceptEncoding)
 			}
@@ -69,7 +69,7 @@ func TestCompressMiddlewareHandler(t *testing.T) {
 				reader := bytes.NewReader(rec.Body.Bytes())
 				gzipReader, err := gzip.NewReader(reader)
 				require.NoError(t, err)
-				defer gzipReader.Close()
+				defer gzipReader.Close() //nolint:errcheck // ignore close error
 
 				decompressedData, err := io.ReadAll(gzipReader)
 				require.NoError(t, err)
@@ -133,10 +133,10 @@ func TestDecompressMiddlewareHandler(t *testing.T) {
 			// Simple handler that reads the body and returns it
 			handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				body, err := io.ReadAll(r.Body)
-				require.NoError(t, err)
+				assert.NoError(t, err)
 				w.Header().Set("Content-Type", "text/plain")
 				_, err = w.Write(body)
-				require.NoError(t, err)
+				assert.NoError(t, err)
 			})
 
 			wrappedHandler := DecompressMiddlewareHandler(handler)

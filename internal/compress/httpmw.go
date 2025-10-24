@@ -50,7 +50,7 @@ type readCloser struct {
 	io.Reader
 }
 
-func (rc *readCloser) Close() error {
+func (rc *readCloser) Close() error { //nolint:revive // необходимо реализовать io.ReadCloser
 	return nil
 }
 

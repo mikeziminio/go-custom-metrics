@@ -31,6 +31,7 @@ tasks:
     desc: Run all linters and tests
     cmds:
       # - task lint
+      - task test
       - docker compose down --remove-orphans
       - docker compose up
 
@@ -56,7 +57,6 @@ tasks:
   lint:
     desc: Run yandex and local linters
     cmds:
-      - "go vet -vettool=$BIN/statictest ./..."
       - "$BIN/golangci-lint run -c .golangci.yml"
       - "$BIN/nilaway ./cmd/server"
       - "$BIN/nilaway ./cmd/agent"

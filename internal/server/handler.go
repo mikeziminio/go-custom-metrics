@@ -19,6 +19,7 @@ func (a *APIServer) Update(res http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		http.Error(res, fmt.Sprintf("failed read request body: %v", err),
 			http.StatusBadRequest)
+		return
 	}
 
 	type reqScheme struct {
@@ -33,6 +34,7 @@ func (a *APIServer) Update(res http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		http.Error(res, fmt.Sprintf("failed to validate request body: %v", err),
 			http.StatusBadRequest)
+		return
 	}
 
 	m, err := a.storage.Update(model.Metric{
@@ -116,6 +118,7 @@ func (a *APIServer) Get(res http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		http.Error(res, fmt.Sprintf("failed read request body: %v", err),
 			http.StatusBadRequest)
+		return
 	}
 
 	type reqScheme struct {
@@ -128,6 +131,7 @@ func (a *APIServer) Get(res http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		http.Error(res, fmt.Sprintf("failed to validate request body: %v", err),
 			http.StatusBadRequest)
+		return
 	}
 
 	m, err := a.storage.Get(data.MType, data.ID)
@@ -197,7 +201,7 @@ func (a *APIServer) GetByParams(res http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (a *APIServer) List(res http.ResponseWriter, req *http.Request) {
+func (a *APIServer) List(res http.ResponseWriter, _ *http.Request) {
 	var b bytes.Buffer
 	metrics := a.storage.List()
 	for id, m := range metrics {

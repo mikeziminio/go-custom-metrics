@@ -42,7 +42,7 @@ func TestCompressWithGZIP(t *testing.T) {
 			reader2 := bytes.NewReader(buf.Bytes())
 			gzipReader, err := gzip.NewReader(reader2)
 			require.NoError(t, err)
-			defer gzipReader.Close()
+			defer gzipReader.Close() //nolint:errcheck // ignore close error
 
 			decompressedBytes, err := io.ReadAll(gzipReader)
 			require.NoError(t, err)

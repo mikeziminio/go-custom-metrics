@@ -90,12 +90,10 @@ func New(
 }
 
 func randFloat64() float64 {
-	// Read 8 cryptographically secure random bytes
-	b := make([]byte, 8)
+	b := make([]byte, 8) //nolint:mnd // 8 bytes for uint64
 	_, err := rand.Read(b)
 	if err != nil {
-		// fallback
-		return mathrand.Float64()
+		return mathrand.Float64() //nolint:gosec // fallback
 	}
 
 	// Convert the bytes to a uint64

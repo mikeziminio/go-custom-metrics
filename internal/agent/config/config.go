@@ -42,7 +42,7 @@ func NewFromEnvsAndFlags() (*Config, error) {
 	// хоть это и не логично - c т.з. пользовательского опыта должно быть наоборот :)
 	err := envconfig.Process("", &c)
 	if err != nil {
-		return nil, fmt.Errorf("failed to process envs: %v", err)
+		return nil, fmt.Errorf("failed to process envs: %w", err)
 	}
 
 	return &c, nil

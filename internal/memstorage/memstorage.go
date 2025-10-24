@@ -5,9 +5,10 @@ import (
 	"maps"
 	"sync"
 
+	"go.uber.org/zap"
+
 	"github.com/mikeziminio/go-custom-metrics/internal/model"
 	"github.com/mikeziminio/go-custom-metrics/internal/server"
-	"go.uber.org/zap"
 )
 
 type MemStorage struct {

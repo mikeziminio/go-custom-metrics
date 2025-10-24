@@ -7,8 +7,9 @@ import (
 	"os"
 	"slices"
 
-	"github.com/mikeziminio/go-custom-metrics/internal/model"
 	"go.uber.org/zap"
+
+	"github.com/mikeziminio/go-custom-metrics/internal/model"
 )
 
 func (s *MemStorage) syncLogger() *zap.Logger {
@@ -58,7 +59,7 @@ func (s *MemStorage) Sync() error {
 		return fmt.Errorf("failed to marshal metrics: %w", err)
 	}
 
-	err = os.WriteFile(s.fileStoragePath, data, 0755)
+	err = os.WriteFile(s.fileStoragePath, data, 0600)
 	if err != nil {
 		return fmt.Errorf("failed to write %d bytes to %s",
 			len(data), s.fileStoragePath)

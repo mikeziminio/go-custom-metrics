@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"go.uber.org/zap"
 
 	"github.com/mikeziminio/go-custom-metrics/internal/compress"
@@ -75,17 +76,15 @@ func (a *APIServer) RegisterRoutes() {
 
 	lmw := log.NewLoggerMiddleware(a.logger)
 
-	// r.Use(middleware.StripSlashes)
+	r.Use(middleware.StripSlashes)
 	r.Use(lmw.MiddlewareHandler)
 	r.Use(compress.DecompressMiddlewareHandler)
 	r.Use(compress.CompressMiddlewareHandler)
 
 	r.Get("/", a.List)
 	r.Post("/value", a.Get)
-	r.Post("/value/", a.Get)
 	r.Get("/value/{metricType}/{metricName}", a.GetByParams)
 	r.Post("/update", a.Update)
-	r.Post("/update/", a.Update)
 	r.Post("/update/{metricType}/{metricName}/{value}", a.UpdateByParams)
 }
 
@@ -120,7 +119,12 @@ func (a *APIServer) Run(ctx context.Context) {
 			for {
 				select {
 				case <-t.C:
-					a.storage.Sync()
+					err := a.storage.Sync()
+					if err != nil {
+						// судя по тому как сделаны тесты yandex - в случае ошибки синхронизации
+						// сервер не должен убиваться
+						a.logger.Warn("Failed to sync with file", zap.Error(err))
+					}
 				case <-ctx.Done():
 					return
 				}

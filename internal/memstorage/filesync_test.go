@@ -79,7 +79,7 @@ func TestSync(t *testing.T) {
 				require.NoError(t, err)
 
 				// Проверяем, что файл был создан и содержит ожидаемые данные
-				content, err := os.ReadFile(tmpFile)
+				content, err := os.ReadFile(tmpFile) //nolint:gosec // file in temp folder
 				require.NoError(t, err)
 				require.NotEmpty(t, content)
 
@@ -103,13 +103,14 @@ func TestSync(t *testing.T) {
 func TestRestore(t *testing.T) {
 	testCases := []struct {
 		name            string
-		setupFile       func(string)
+		setupFile       func(*testing.T, string)
 		expectedError   bool
 		expectedMetrics map[string]model.Metric
 	}{
 		{
 			name: "восстановление из корректного файла",
-			setupFile: func(filename string) {
+			setupFile: func(t *testing.T, filename string) {
+				t.Helper()
 				metrics := []model.Metric{
 					{
 						ID:    "counter1",
@@ -124,8 +125,10 @@ func TestRestore(t *testing.T) {
 						Value: helper.NewFloat64(t, 2.5),
 					},
 				}
-				content, _ := json.Marshal(metrics)
-				os.WriteFile(filename, content, 0644)
+				content, err := json.Marshal(metrics)
+				require.NoError(t, err)
+				err = os.WriteFile(filename, content, 0600)
+				require.NoError(t, err)
 			},
 			expectedError: false,
 			expectedMetrics: map[string]model.Metric{
@@ -145,16 +148,21 @@ func TestRestore(t *testing.T) {
 		},
 		{
 			name: "восстановление из несуществующего файла",
-			setupFile: func(filename string) {
+			setupFile: func(t *testing.T, _ string) {
+				t.Helper()
 				// Ничего не делаем, файл не будет существовать
 			},
+			// исходя из того как сделаны тесты от yandex - в этом случае
+			// сервер просто должен стартовать с пустыми метриками
 			expectedError:   false,
 			expectedMetrics: make(map[string]model.Metric),
 		},
 		{
 			name: "восстановление из файла с некорректным JSON",
-			setupFile: func(filename string) {
-				os.WriteFile(filename, []byte("invalid json"), 0644)
+			setupFile: func(t *testing.T, filename string) {
+				t.Helper()
+				err := os.WriteFile(filename, []byte("invalid json"), 0600)
+				require.NoError(t, err)
 			},
 			expectedError:   true,
 			expectedMetrics: nil,
@@ -168,7 +176,7 @@ func TestRestore(t *testing.T) {
 			tmpFile := filepath.Join(tmpDir, "metrics.json")
 
 			// Подготавливаем тестовый файл
-			tc.setupFile(tmpFile)
+			tc.setupFile(t, tmpFile)
 
 			ms := New(false, tmpFile, zap.L())
 
