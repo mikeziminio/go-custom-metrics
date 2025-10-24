@@ -179,7 +179,7 @@ func (a *Agent) Send(ctx context.Context, m *model.Metric, useCompress bool) err
 	return nil
 }
 
-// SerndAll - отправляет все метрики на сервер
+// SendAll - отправляет все метрики на сервер
 // В случае возникновения ошибок при отправке - просто выводит их в лог
 func (a *Agent) SendAll(ctx context.Context, useCompress bool) {
 	var wg sync.WaitGroup

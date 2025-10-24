@@ -22,34 +22,22 @@ tasks:
       - "go build -o $BIN/agent ./cmd/agent"
       - "$BIN/agent {{.CLI_ARGS}}"
 
-  prepare-yandex:
-    desc: Download and build yandex tests and linters
+  test-build:
+    desc: Rebuild docker image for yandex tests
     cmds:
-      - "git clone git@github.com:Yandex-Practicum/go-autotests.git ./tmp-go-autotests"
-      - "(cd ./tmp-go-autotests && go test -c -o $BIN/metricstest ./cmd/metricstest)"
-      - "(cd ./tmp-go-autotests && go build -o $BIN/statictest ./cmd/statictest)"
-      - "(cd ./tmp-go-autotests && go build -o $BIN/random ./cmd/random)"
-      - "rm -r -f ./tmp-go-autotests"
+      - docker-compose build --no-cache
 
   test-all:
-    desc: Run all tests
+    desc: Run all linters and tests
     vars:
       SERVER_PORT:
         sh: $BIN/random unused-port
       TEMP_FILE:
         sh: $BIN/random tempfile
     cmds:
-      # - "go test -race ./..."
-      - "task build"
-      # - "$BIN/metricstest -test.v -test.run=^TestIteration1$ -binary-path=$BIN/server"
-      # - "$BIN/metricstest -test.v -test.run=^TestIteration2[AB]*$ -source-path=. -agent-binary-path=$BIN/agent"
-      # - "$BIN/metricstest -test.v -test.run=^TestIteration3[AB]*$ -source-path=. -agent-binary-path=$BIN/agent -binary-path=$BIN/server"
-      # - "SERVER_PORT={{.SERVER_PORT}} ADDRESS=localhost:{{.SERVER_PORT}} TEMP_FILE={{.TEMP_FILE}} $BIN/metricstest -test.v -test.run=^TestIteration4$ -agent-binary-path=$BIN/agent -binary-path=$BIN/server -server-port={{.SERVER_PORT}} -source-path=."
-      # - "SERVER_PORT={{.SERVER_PORT}} ADDRESS=localhost:{{.SERVER_PORT}} TEMP_FILE={{.TEMP_FILE}} $BIN/metricstest -test.v -test.run=^TestIteration5$ -agent-binary-path=$BIN/agent -binary-path=$BIN/server -server-port={{.SERVER_PORT}} -source-path=."
-      # - "SERVER_PORT={{.SERVER_PORT}} ADDRESS=localhost:{{.SERVER_PORT}} TEMP_FILE={{.TEMP_FILE}} $BIN/metricstest -test.v -test.run=^TestIteration6$ -agent-binary-path=$BIN/agent -binary-path=$BIN/server -server-port={{.SERVER_PORT}} -source-path=."
-      # - "SERVER_PORT=8080 ADDRESS=localhost:8080 TEMP_FILE={{.TEMP_FILE}} $BIN/metricstest -test.v -test.run=^TestIteration7$ -agent-binary-path=$BIN/agent -binary-path=$BIN/server -server-port=8080 -source-path=."
-      # - "SERVER_PORT={{.SERVER_PORT}} ADDRESS=localhost:{{.SERVER_PORT}} TEMP_FILE={{.TEMP_FILE}} $BIN/metricstest -test.v -test.run=^TestIteration8$ -agent-binary-path=$BIN/agent -binary-path=$BIN/server -server-port={{.SERVER_PORT}} -source-path=."
-      - "SERVER_PORT={{.SERVER_PORT}} ADDRESS=localhost:{{.SERVER_PORT}} TEMP_FILE={{.TEMP_FILE}} $BIN/metricstest -test.v -test.run=^TestIteration9$ -agent-binary-path=$BIN/agent -binary-path=$BIN/server -file-storage-path={{.TEMP_FILE}} -server-port={{.SERVER_PORT}} -source-path=."
+      # - task lint
+      - docker compose down --remove-orphans
+      - docker compose up
 
   test:
     desc: Run local unit tests
@@ -62,7 +50,7 @@ tasks:
       - "gofmt -w ."
       - "goimports -w -local \"github.com/mikeziminio/go-custom-metrics\" ."
 
-  prepare-lint:
+  lint-prepare:
     desc: Install golangci-lint and nilaway, verify golangci-lint config
     cmds:
       - "GOBIN=$BIN go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.4.0"
