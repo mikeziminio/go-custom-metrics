@@ -11,17 +11,23 @@ import (
 	"go.uber.org/zap"
 )
 
-func (s *MemStorage) Restore() error {
-	s.logger.Info("Start restore from file",
+func (s *MemStorage) syncLogger() *zap.Logger {
+	return s.logger.With(
 		zap.String("fileStoragePath", s.fileStoragePath),
 	)
+}
+
+func (s *MemStorage) Restore() error {
+	logger := s.syncLogger()
+	logger.Info("Start restore from file")
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	data, err := os.ReadFile(s.fileStoragePath)
 	if err != nil {
+		// не убиваем сервер если не удалось восстановить метрики из файла
+		logger.Error("Failed to restore from file", zap.Error(err))
 		return nil
-		// return fmt.Errorf("failed to read from %s", s.fileStoragePath)
 	}
 
 	var metricList []model.Metric
@@ -36,13 +42,13 @@ func (s *MemStorage) Restore() error {
 		metricMap[m.ID] = m
 	}
 	s.metrics = metricMap
+	logger.Info("Finish restore from file")
 	return nil
 }
 
 func (s *MemStorage) Sync() error {
-	s.logger.Info("Start sync with file",
-		zap.String("fileStoragePath", s.fileStoragePath),
-	)
+	logger := s.syncLogger()
+	logger.Info("Start sync with file")
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -58,5 +64,6 @@ func (s *MemStorage) Sync() error {
 			len(data), s.fileStoragePath)
 	}
 
+	logger.Info("Finish sync with file")
 	return nil
 }
