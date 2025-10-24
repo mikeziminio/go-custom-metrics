@@ -19,7 +19,6 @@ func main() {
 		fmt.Sprintf("http://%s", c.Address),
 		c.PollInterval,
 		c.ReportInterval,
-		c.ConcurrentRequests,
 		c.UseCompress,
 		logger,
 	)

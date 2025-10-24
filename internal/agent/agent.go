@@ -3,10 +3,13 @@ package agent
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
-	"math/rand/v2"
+	"math"
+	mathrand "math/rand/v2"
 	"net/http"
 	"net/url"
 	"os"
@@ -17,7 +20,6 @@ import (
 	"time"
 
 	"go.uber.org/zap"
-	"golang.org/x/sync/semaphore"
 
 	"github.com/mikeziminio/go-custom-metrics/internal/compress"
 	"github.com/mikeziminio/go-custom-metrics/internal/model"
@@ -63,7 +65,6 @@ type Agent struct {
 	mu             sync.RWMutex
 	client         *http.Client
 	baseURL        string
-	sem            *semaphore.Weighted
 	logger         *zap.Logger
 	useCompress    bool
 }
@@ -72,7 +73,6 @@ func New(
 	baseURL string,
 	pollInterval float64,
 	reportInterval float64,
-	concurrentRequests int,
 	useCompress bool,
 	logger *zap.Logger,
 ) *Agent {
@@ -84,10 +84,27 @@ func New(
 		counters:       make(map[string]int64),
 		client:         client,
 		baseURL:        baseURL,
-		sem:            semaphore.NewWeighted(int64(concurrentRequests)),
 		logger:         logger,
 		useCompress:    useCompress,
 	}
+}
+
+func randFloat64() float64 {
+	// Read 8 cryptographically secure random bytes
+	b := make([]byte, 8)
+	_, err := rand.Read(b)
+	if err != nil {
+		// fallback
+		return mathrand.Float64()
+	}
+
+	// Convert the bytes to a uint64
+	val := binary.LittleEndian.Uint64(b)
+
+	// Normalize the uint64 to a float64 in the range [0.0, 1.0)
+	// by dividing by the maximum possible uint64 value plus 1.
+	// This ensures a uniform distribution.
+	return float64(val) / (float64(math.MaxUint64) + 1)
 }
 
 func (a *Agent) Collect() {
@@ -123,7 +140,7 @@ func (a *Agent) Collect() {
 	a.gauges[MetricStackSys] = float64(ms.StackSys)
 	a.gauges[MetricSys] = float64(ms.Sys)
 	a.gauges[MetricTotalAlloc] = float64(ms.TotalAlloc)
-	a.gauges[MetricRandomValue] = rand.Float64() //nolint:gosec // it's ok
+	a.gauges[MetricRandomValue] = randFloat64()
 	a.counters[MetricPollCount]++
 }
 
@@ -159,8 +176,6 @@ func (a *Agent) Send(ctx context.Context, m *model.Metric, useCompress bool) err
 		// в сжатом формате
 		req.Header.Set("Accept-Encoding", "gzip")
 	}
-	// _ = a.sem.Acquire(ctx, 1)
-	// defer a.sem.Release(1)
 	res, err := a.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to do request: %w", err)

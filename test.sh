@@ -1,5 +1,7 @@
 set -ex
 
+go vet -vettool=./bin/statictest ./...
+
 SERVER_PORT=$(./bin/random unused-port)
 ADDRESS="localhost:${SERVER_PORT}"
 TEMP_FILE=$(./bin/random tempfile)

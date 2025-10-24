@@ -8,24 +8,21 @@ import (
 )
 
 type Config struct {
-	Address            string  `envconfig:"ADDRESS"`
-	ReportInterval     float64 `envconfig:"REPORT_INTERVAL"`
-	PollInterval       float64 `envconfig:"POLL_INTERVAL"`
-	ConcurrentRequests int
-	UseCompress        bool
+	Address        string  `envconfig:"ADDRESS"`
+	ReportInterval float64 `envconfig:"REPORT_INTERVAL"`
+	PollInterval   float64 `envconfig:"POLL_INTERVAL"`
+	UseCompress    bool
 }
 
 var (
-	DefaultPollInterval       = 2.0
-	DefaultReportInterval     = 10.0
-	DefaultConcurrentRequests = 1000
-	DefaultUseCompress        = true
+	DefaultPollInterval   = 2.0
+	DefaultReportInterval = 10.0
+	DefaultUseCompress    = true
 )
 
 func NewFromFlags() *Config {
 	c := Config{}
 
-	c.ConcurrentRequests = DefaultConcurrentRequests
 	c.UseCompress = DefaultUseCompress
 
 	flag.StringVar(&c.Address, "a", "localhost:8080", "хост:порт http сервера")

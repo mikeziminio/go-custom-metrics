@@ -29,11 +29,6 @@ tasks:
 
   test-all:
     desc: Run all linters and tests
-    vars:
-      SERVER_PORT:
-        sh: $BIN/random unused-port
-      TEMP_FILE:
-        sh: $BIN/random tempfile
     cmds:
       # - task lint
       - docker compose down --remove-orphans
