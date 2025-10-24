@@ -2,7 +2,7 @@ package config
 
 import (
 	"flag"
-	"log"
+	"fmt"
 
 	"github.com/kelseyhightower/envconfig"
 )
@@ -11,6 +11,7 @@ type Config struct {
 	Address        string  `envconfig:"ADDRESS"`
 	ReportInterval float64 `envconfig:"REPORT_INTERVAL"`
 	PollInterval   float64 `envconfig:"POLL_INTERVAL"`
+	LogLevel       string
 	UseCompress    bool
 }
 
@@ -18,12 +19,14 @@ var (
 	DefaultPollInterval   = 2.0
 	DefaultReportInterval = 10.0
 	DefaultUseCompress    = true
+	DefaultLogLevel       = "info"
 )
 
-func NewFromFlags() *Config {
+func NewFromEnvsAndFlags() (*Config, error) {
 	c := Config{}
 
 	c.UseCompress = DefaultUseCompress
+	c.LogLevel = DefaultLogLevel
 
 	flag.StringVar(&c.Address, "a", "localhost:8080", "хост:порт http сервера")
 	flag.Float64Var(
@@ -39,8 +42,8 @@ func NewFromFlags() *Config {
 	// хоть это и не логично - c т.з. пользовательского опыта должно быть наоборот :)
 	err := envconfig.Process("", &c)
 	if err != nil {
-		log.Fatalf("failed to process envs: %v", err)
+		return nil, fmt.Errorf("failed to process envs: %v", err)
 	}
 
-	return &c
+	return &c, nil
 }

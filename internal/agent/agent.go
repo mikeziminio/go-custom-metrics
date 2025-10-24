@@ -197,35 +197,32 @@ func (a *Agent) Send(ctx context.Context, m *model.Metric, useCompress bool) err
 // SendAll - отправляет все метрики на сервер
 // В случае возникновения ошибок при отправке - просто выводит их в лог
 func (a *Agent) SendAll(ctx context.Context, useCompress bool) {
+	send := func(name string, t model.MetricType, delta *int64, value *float64) {
+		m := model.Metric{
+			ID:    name,
+			MType: t,
+			Delta: delta,
+			Value: value,
+		}
+		err := a.Send(ctx, &m, useCompress)
+		if err != nil {
+			// если агенту не удалось отправить - он продолжает работать
+			a.logger.Error("failed to send metric", zap.Error(err))
+		}
+	}
+
 	var wg sync.WaitGroup
-	wg.Add(len(a.gauges))
+	wg.Add(len(a.gauges) + len(a.counters))
 	for name, val := range a.gauges {
 		go func() {
 			defer wg.Done()
-			m := model.Metric{
-				ID:    name,
-				MType: model.Gauge,
-				Value: &val,
-			}
-			err := a.Send(ctx, &m, useCompress)
-			if err != nil {
-				a.logger.Error("failed to send metric", zap.Error(err))
-			}
+			send(name, model.Gauge, nil, &val)
 		}()
 	}
-	wg.Add(len(a.counters))
 	for name, val := range a.counters {
 		go func() {
 			defer wg.Done()
-			m := model.Metric{
-				ID:    name,
-				MType: model.Counter,
-				Delta: &val,
-			}
-			err := a.Send(ctx, &m, useCompress)
-			if err != nil {
-				a.logger.Error("failed to send metric", zap.Error(err))
-			}
+			send(name, model.Counter, &val, nil)
 		}()
 	}
 	wg.Wait()
