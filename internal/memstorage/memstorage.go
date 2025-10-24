@@ -1,27 +1,36 @@
 package memstorage
 
 import (
+	"fmt"
 	"maps"
 	"sync"
+
+	"go.uber.org/zap"
 
 	"github.com/mikeziminio/go-custom-metrics/internal/model"
 	"github.com/mikeziminio/go-custom-metrics/internal/server"
 )
 
 type MemStorage struct {
-	metrics map[string]model.Metric
-	mu      sync.RWMutex
+	metrics         map[string]model.Metric
+	mu              sync.RWMutex
+	syncWithUpdate  bool
+	fileStoragePath string
+	logger          *zap.Logger
 }
 
 var _ server.Storage = (*MemStorage)(nil)
 
-func New() *MemStorage {
+func New(syncWithUpdate bool, fileStoragePath string, logger *zap.Logger) *MemStorage {
 	return &MemStorage{
-		metrics: make(map[string]model.Metric),
+		syncWithUpdate:  syncWithUpdate,
+		fileStoragePath: fileStoragePath,
+		metrics:         make(map[string]model.Metric),
+		logger:          logger,
 	}
 }
 
-func (s *MemStorage) Update(m model.Metric) error {
+func (s *MemStorage) Update(m model.Metric) (*model.Metric, error) {
 	// todo: next sprint
 	// в текущем спринте не дается никаких требований на хранение метрик
 	// поэтому сейчас метрики типа Gauge перезатирают значение,
@@ -35,7 +44,13 @@ func (s *MemStorage) Update(m model.Metric) error {
 		*m.Delta += *current.Delta
 	}
 	s.metrics[m.ID] = m
-	return nil
+	if s.syncWithUpdate {
+		err := s.Sync()
+		if err != nil {
+			return nil, fmt.Errorf("failed to sync storage")
+		}
+	}
+	return &m, nil
 }
 
 func (s *MemStorage) List() map[string]model.Metric {

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	stdlog "log"
 
 	"github.com/mikeziminio/go-custom-metrics/internal/log"
 	"github.com/mikeziminio/go-custom-metrics/internal/memstorage"
@@ -13,11 +14,28 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	c := config.NewFromFlags()
-	logger := log.New()
-	ms := memstorage.New()
+	c, err := config.NewFromEnvsAndFlags()
+	if err != nil {
+		stdlog.Fatalf("failed to init config: %v", err)
+	}
+	logger, err := log.New(c.LogLevel)
+	if err != nil {
+		stdlog.Fatalf("failed to init logger: %v", err)
+	}
 
-	s := server.New(c.Address, ms, logger)
+	var syncWithUpdate bool
+	if c.StoreInterval == 0 {
+		syncWithUpdate = true
+	}
+	ms := memstorage.New(syncWithUpdate, c.FileStoragePath, logger)
+
+	s := server.New(
+		c.Address,
+		c.StoreInterval,
+		c.Restore,
+		ms,
+		logger,
+	)
 	s.RegisterRoutes()
 	s.Run(ctx)
 }

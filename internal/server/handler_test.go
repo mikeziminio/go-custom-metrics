@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"net/http"
@@ -23,7 +24,7 @@ func TestUpdate(t *testing.T) {
 		metric             *model.Metric
 		storageReturnError error
 		expectedStatus     int
-		expectedBody       string
+		expectedJSONBody   string
 	}{
 		{
 			name:        "update counter value",
@@ -38,6 +39,7 @@ func TestUpdate(t *testing.T) {
 			},
 			storageReturnError: nil,
 			expectedStatus:     200,
+			expectedJSONBody:   `{"id":"some","type":"counter","delta":8}`,
 		},
 		{
 			name:        "update gauge value",
@@ -52,6 +54,7 @@ func TestUpdate(t *testing.T) {
 			},
 			storageReturnError: nil,
 			expectedStatus:     200,
+			expectedJSONBody:   `{"id":"some","type":"gauge","value":8.1234}`,
 		},
 	}
 
@@ -59,10 +62,10 @@ func TestUpdate(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			storage := NewMockStorage(t)
 			storage.EXPECT().Update(*tc.metric).
-				Return(tc.storageReturnError).
-				Once()
+				Return(tc.metric, tc.storageReturnError).
+				Twice()
 
-			server := New("", storage, zap.L())
+			server := New("", 0, false, storage, zap.L())
 			server.RegisterRoutes()
 
 			path := fmt.Sprintf("/update/%s/%s/%s", tc.metricType, tc.metricName, tc.metricValue)
@@ -70,8 +73,28 @@ func TestUpdate(t *testing.T) {
 			rec := httptest.NewRecorder()
 
 			server.router.ServeHTTP(rec, req)
-
 			assert.Equal(t, tc.expectedStatus, rec.Code)
+
+			path = "/update"
+			var key string
+			if tc.metricType == model.Gauge {
+				key = "value"
+			} else {
+				key = "delta"
+			}
+			req = httptest.NewRequest(http.MethodPost, path, bytes.NewBufferString(fmt.Sprintf(`{
+				"id": "%s",
+				"type": "%s",
+				"%s": %s
+			}`, tc.metricName, tc.metricType, key, tc.metricValue)))
+			rec = httptest.NewRecorder()
+
+			server.router.ServeHTTP(rec, req)
+			assert.Equal(t, tc.expectedStatus, rec.Code)
+			if rec.Code == http.StatusOK {
+				body, _ := io.ReadAll(rec.Body)
+				assert.JSONEq(t, tc.expectedJSONBody, string(body))
+			}
 		})
 	}
 }
@@ -84,7 +107,8 @@ func TestGet(t *testing.T) {
 		storageReturnMetric *model.Metric
 		storageReturnError  error
 		expectedStatus      int
-		expectedBody        string
+		expectedTextBody    string
+		expectedJSONBody    string
 	}{
 		{
 			name:                "counter value not found",
@@ -93,7 +117,6 @@ func TestGet(t *testing.T) {
 			storageReturnMetric: nil,
 			storageReturnError:  model.ErrMetricNotFound,
 			expectedStatus:      404,
-			expectedBody:        "",
 		},
 		{
 			name:       "counter value",
@@ -107,7 +130,8 @@ func TestGet(t *testing.T) {
 			},
 			storageReturnError: nil,
 			expectedStatus:     200,
-			expectedBody:       "8",
+			expectedTextBody:   "8",
+			expectedJSONBody:   `{"id":"some","type":"counter","delta":8}`,
 		},
 		{
 			name:       "gauge value",
@@ -121,7 +145,8 @@ func TestGet(t *testing.T) {
 			},
 			storageReturnError: nil,
 			expectedStatus:     200,
-			expectedBody:       "64.555",
+			expectedTextBody:   "64.555",
+			expectedJSONBody:   `{"id":"some","type":"gauge","value":64.555}`,
 		},
 	}
 
@@ -130,9 +155,9 @@ func TestGet(t *testing.T) {
 			storage := NewMockStorage(t)
 			storage.EXPECT().Get(tc.metricType, tc.metricName).
 				Return(tc.storageReturnMetric, tc.storageReturnError).
-				Once()
+				Twice()
 
-			server := New("", storage, zap.L())
+			server := New("", 0, false, storage, zap.L())
 			server.RegisterRoutes()
 
 			path := fmt.Sprintf("/value/%s/%s", tc.metricType, tc.metricName)
@@ -140,10 +165,25 @@ func TestGet(t *testing.T) {
 			rec := httptest.NewRecorder()
 
 			server.router.ServeHTTP(rec, req)
-
 			assert.Equal(t, tc.expectedStatus, rec.Code)
-			body, _ := io.ReadAll(rec.Body)
-			assert.Equal(t, tc.expectedBody, string(body))
+			if rec.Code == http.StatusOK {
+				body, _ := io.ReadAll(rec.Body)
+				assert.Equal(t, tc.expectedTextBody, string(body))
+			}
+
+			path = "/value"
+			req = httptest.NewRequest(http.MethodPost, path, bytes.NewBufferString(fmt.Sprintf(`{
+				"id": "%s",
+				"type": "%s"
+			}`, tc.metricName, tc.metricType)))
+			rec = httptest.NewRecorder()
+
+			server.router.ServeHTTP(rec, req)
+			assert.Equal(t, tc.expectedStatus, rec.Code)
+			if rec.Code == http.StatusOK {
+				body, _ := io.ReadAll(rec.Body)
+				assert.JSONEq(t, tc.expectedJSONBody, string(body))
+			}
 		})
 	}
 }
@@ -165,7 +205,7 @@ func TestList(t *testing.T) {
 		}).
 		Once()
 
-	server := New("", storage, zap.L())
+	server := New("", 0, false, storage, zap.L())
 	server.RegisterRoutes()
 
 	path := "/"
