@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"net/http"
-	"os"
 	"os/signal"
 	"syscall"
 	"time"
@@ -119,12 +118,9 @@ func (a *APIServer) Run(ctx context.Context) {
 		}()
 	}
 
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-	select {
-	case <-sigChan:
-	case <-ctx.Done():
-	}
+	ctx, cancel = signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
+	<-ctx.Done()
 
 	err := a.httpServer.Shutdown(context.Background())
 	if err != nil {

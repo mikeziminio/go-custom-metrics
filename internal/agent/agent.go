@@ -12,7 +12,6 @@ import (
 	mathrand "math/rand/v2"
 	"net/http"
 	"net/url"
-	"os"
 	"os/signal"
 	"runtime"
 	"sync"
@@ -227,15 +226,8 @@ func (a *Agent) SendAll(ctx context.Context, useCompress bool) {
 }
 
 func (a *Agent) Run(ctx context.Context) {
-	ctx, cancel := context.WithCancel(ctx)
-
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		<-sigChan
-		a.logger.Info("Agent stopped")
-		cancel()
-	}()
+	ctx, cancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
 
 	var wg sync.WaitGroup
 	wg.Add(2)
