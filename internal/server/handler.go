@@ -60,7 +60,8 @@ func (a *APIServer) Update(res http.ResponseWriter, req *http.Request) {
 	_, err = res.Write(resData)
 	if err != nil {
 		http.Error(res, fmt.Sprintf("failed to write body: %v", err),
-			http.StatusInternalServerError)
+			http.StatusInternalServerError,
+		)
 		return
 	}
 }
