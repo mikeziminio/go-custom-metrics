@@ -1,0 +1,16 @@
+services:
+
+  main:
+    build: .
+    volumes:
+      - ./cmd:/app/cmd
+      - ./internal:/app/internal
+      - ./test.sh:/app/test.sh
+    command:
+      - sh
+      - -c
+      - >
+        true
+        && go build -o ./bin/server ./cmd/server
+        && go build -o ./bin/agent ./cmd/agent
+        && . ./test.sh

@@ -61,5 +61,5 @@ func TestCollect(t *testing.T) {
 
 func testAgent(t *testing.T) *Agent {
 	t.Helper()
-	return New("", 1, 1, 100, zap.L())
+	return New("", 1, 1, true, zap.L())
 }

@@ -1,12 +1,17 @@
 package agent
 
 import (
+	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/binary"
+	"encoding/json"
 	"fmt"
-	"math/rand/v2"
+	"io"
+	"math"
+	mathrand "math/rand/v2"
 	"net/http"
 	"net/url"
-	"os"
 	"os/signal"
 	"runtime"
 	"sync"
@@ -14,8 +19,8 @@ import (
 	"time"
 
 	"go.uber.org/zap"
-	"golang.org/x/sync/semaphore"
 
+	"github.com/mikeziminio/go-custom-metrics/internal/compress"
 	"github.com/mikeziminio/go-custom-metrics/internal/model"
 )
 
@@ -59,15 +64,15 @@ type Agent struct {
 	mu             sync.RWMutex
 	client         *http.Client
 	baseURL        string
-	sem            *semaphore.Weighted
 	logger         *zap.Logger
+	useCompress    bool
 }
 
 func New(
 	baseURL string,
 	pollInterval float64,
 	reportInterval float64,
-	concurrentRequests int,
+	useCompress bool,
 	logger *zap.Logger,
 ) *Agent {
 	client := &http.Client{}
@@ -78,9 +83,25 @@ func New(
 		counters:       make(map[string]int64),
 		client:         client,
 		baseURL:        baseURL,
-		sem:            semaphore.NewWeighted(int64(concurrentRequests)),
 		logger:         logger,
+		useCompress:    useCompress,
 	}
+}
+
+func randFloat64() float64 {
+	b := make([]byte, 8) //nolint:mnd // 8 bytes for uint64
+	_, err := rand.Read(b)
+	if err != nil {
+		return mathrand.Float64() //nolint:gosec // fallback
+	}
+
+	// Convert the bytes to a uint64
+	val := binary.LittleEndian.Uint64(b)
+
+	// Normalize the uint64 to a float64 in the range [0.0, 1.0)
+	// by dividing by the maximum possible uint64 value plus 1.
+	// This ensures a uniform distribution.
+	return float64(val) / (float64(math.MaxUint64) + 1)
 }
 
 func (a *Agent) Collect() {
@@ -116,97 +137,97 @@ func (a *Agent) Collect() {
 	a.gauges[MetricStackSys] = float64(ms.StackSys)
 	a.gauges[MetricSys] = float64(ms.Sys)
 	a.gauges[MetricTotalAlloc] = float64(ms.TotalAlloc)
-	a.gauges[MetricRandomValue] = rand.Float64() //nolint:gosec // it's ok
+	a.gauges[MetricRandomValue] = randFloat64()
 	a.counters[MetricPollCount]++
 }
 
-func (a *Agent) Send(ctx context.Context, m *model.Metric) error {
+func (a *Agent) Send(ctx context.Context, m *model.Metric, useCompress bool) error {
 	a.logger.Info("send metric start", zap.String("metric", fmt.Sprintf("%v", m)))
-	var u string
-	var err error
-	switch m.MType {
-	case model.Counter:
-		u, err = url.JoinPath(
-			a.baseURL, "/update",
-			fmt.Sprintf("/%s/%s/%d", string(m.MType), m.ID, *m.Delta),
-		)
-	case model.Gauge:
-		u, err = url.JoinPath(
-			a.baseURL, "/update",
-			fmt.Sprintf("/%s/%s/%.5f", string(m.MType), m.ID, *m.Value),
-		)
-	default:
-		panic(fmt.Sprintf("unknown metric type: %s", m.MType))
-	}
+
+	u, err := url.JoinPath(a.baseURL, "/update")
 	if err != nil {
 		return fmt.Errorf("failed to join url path for sending metric %s, %v", a.baseURL, m)
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, http.NoBody)
+
+	body, err := json.Marshal(m)
+	if err != nil {
+		return fmt.Errorf("failed to marshal: %w", err)
+	}
+
+	var bodyReader io.Reader
+	bodyReader = bytes.NewReader(body)
+	if useCompress {
+		bodyReader = compress.CompressWithGZIP(bodyReader)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, bodyReader)
 	if err != nil {
 		return fmt.Errorf("failed to init request: %w", err)
 	}
-	_ = a.sem.Acquire(ctx, 1)
-	defer a.sem.Release(1)
+	req.Header.Set("Accept", "application/json")
+	if useCompress {
+		req.Header.Set("Content-Encoding", "gzip")
+
+		// сейчас в агенте ответ от сервера никаки не используется
+		// поэтому кода по распаковке в агенте нет
+		// но чтобы проходили тесты нужно чтобы сервер также отправлял
+		// в сжатом формате
+		req.Header.Set("Accept-Encoding", "gzip")
+	}
 	res, err := a.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to do request: %w", err)
 	}
 	defer res.Body.Close() //nolint:errcheck // it's ok
 	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status code for request %s: %d", u, res.StatusCode)
+		return fmt.Errorf("unexpected status code for request: %d", res.StatusCode)
 	}
-	a.logger.Info("sent metric successfully", zap.String("url", u))
+	a.logger.Info("sent metric successfully",
+		zap.String("type", string(m.MType)),
+		zap.String("id", m.ID),
+		zap.Float64p("value", m.Value),
+		zap.Int64p("counter", m.Delta),
+	)
 
 	return nil
 }
 
-// SerndAll - отправляет все метрики на сервер
+// SendAll - отправляет все метрики на сервер
 // В случае возникновения ошибок при отправке - просто выводит их в лог
-func (a *Agent) SendAll(ctx context.Context) {
+func (a *Agent) SendAll(ctx context.Context, useCompress bool) {
+	send := func(name string, t model.MetricType, delta *int64, value *float64) {
+		m := model.Metric{
+			ID:    name,
+			MType: t,
+			Delta: delta,
+			Value: value,
+		}
+		err := a.Send(ctx, &m, useCompress)
+		if err != nil {
+			// если агенту не удалось отправить - он продолжает работать
+			a.logger.Error("failed to send metric", zap.Error(err))
+		}
+	}
+
 	var wg sync.WaitGroup
-	wg.Add(len(a.gauges))
+	wg.Add(len(a.gauges) + len(a.counters))
 	for name, val := range a.gauges {
 		go func() {
 			defer wg.Done()
-			m := model.Metric{
-				ID:    name,
-				MType: model.Gauge,
-				Value: &val,
-			}
-			err := a.Send(ctx, &m)
-			if err != nil {
-				a.logger.Error("failed to send metric", zap.Error(err))
-			}
+			send(name, model.Gauge, nil, &val)
 		}()
 	}
-	wg.Add(len(a.counters))
 	for name, val := range a.counters {
 		go func() {
 			defer wg.Done()
-			m := model.Metric{
-				ID:    name,
-				MType: model.Counter,
-				Delta: &val,
-			}
-			err := a.Send(ctx, &m)
-			if err != nil {
-				a.logger.Error("failed to send metric", zap.Error(err))
-			}
+			send(name, model.Counter, &val, nil)
 		}()
 	}
 	wg.Wait()
 }
 
 func (a *Agent) Run(ctx context.Context) {
-	ctx, cancel := context.WithCancel(ctx)
-
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		<-sigChan
-		a.logger.Info("Agent stopped")
-		cancel()
-	}()
+	ctx, cancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
 
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -232,7 +253,7 @@ func (a *Agent) Run(ctx context.Context) {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				a.SendAll(ctx)
+				a.SendAll(ctx, a.useCompress)
 			}
 		}
 	}()

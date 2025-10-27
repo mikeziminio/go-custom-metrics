@@ -2,7 +2,6 @@ package model
 
 import (
 	"errors"
-	"fmt"
 )
 
 type MetricType string
@@ -17,7 +16,7 @@ func NewMetricTypeFromString(s string) (MetricType, error) {
 	case Counter, Gauge:
 		return MetricType(s), nil
 	default:
-		return MetricType(""), fmt.Errorf("incorrect metric type")
+		return MetricType(""), ErrIncorrectMetricType
 	}
 }
 
@@ -29,3 +28,4 @@ type Metric struct {
 }
 
 var ErrMetricNotFound = errors.New("metric not found")
+var ErrIncorrectMetricType = errors.New("incorrect metric type")

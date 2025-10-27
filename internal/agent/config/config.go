@@ -2,28 +2,31 @@ package config
 
 import (
 	"flag"
+	"fmt"
+
+	"github.com/kelseyhightower/envconfig"
 )
 
 type Config struct {
-	Address            string
-	ReportInterval     float64
-	PollInterval       float64
-	ConcurrentRequests int
+	Address        string  `envconfig:"ADDRESS"`
+	ReportInterval float64 `envconfig:"REPORT_INTERVAL"`
+	PollInterval   float64 `envconfig:"POLL_INTERVAL"`
+	LogLevel       string
+	UseCompress    bool
 }
 
 var (
-	DefaultPollInterval       = 2.0
-	DefaultReportInterval     = 10.0
-	DefaultConcurrentRequests = 10
+	DefaultPollInterval   = 2.0
+	DefaultReportInterval = 10.0
+	DefaultUseCompress    = true
+	DefaultLogLevel       = "info"
 )
 
-func NewFromFlags() *Config {
+func NewFromEnvsAndFlags() (*Config, error) {
 	c := Config{}
 
-	// todo: next sprints
-	// видимо в следующих спринтах будет расширение конфигов (через env)
-	// сейчас те что не задаются через флаги - просто хардкодятся
-	c.ConcurrentRequests = DefaultConcurrentRequests
+	c.UseCompress = DefaultUseCompress
+	c.LogLevel = DefaultLogLevel
 
 	flag.StringVar(&c.Address, "a", "localhost:8080", "хост:порт http сервера")
 	flag.Float64Var(
@@ -35,5 +38,12 @@ func NewFromFlags() *Config {
 	flag.Float64Var(&c.PollInterval, "p", DefaultPollInterval, "частота опроса метрик")
 	flag.Parse()
 
-	return &c
+	// по ТЗ переменные среды перезаписывают флаги
+	// хоть это и не логично - c т.з. пользовательского опыта должно быть наоборот :)
+	err := envconfig.Process("", &c)
+	if err != nil {
+		return nil, fmt.Errorf("failed to process envs: %w", err)
+	}
+
+	return &c, nil
 }
