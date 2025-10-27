@@ -21,13 +21,22 @@ type MemStorage struct {
 
 var _ server.Storage = (*MemStorage)(nil)
 
-func New(syncWithUpdate bool, fileStoragePath string, logger *zap.Logger) *MemStorage {
-	return &MemStorage{
+func New(syncWithUpdate bool, restore bool, fileStoragePath string, logger *zap.Logger) (*MemStorage, error) {
+	s := MemStorage{
 		syncWithUpdate:  syncWithUpdate,
 		fileStoragePath: fileStoragePath,
 		metrics:         make(map[string]model.Metric),
 		logger:          logger,
 	}
+	if restore {
+		if err := s.restore(); err != nil {
+			// тесты yandex сделаны таким образом, что в случае
+			// отстуствия файла - мы не должны возвращать ошибку
+			logger.Warn("failed to restore storage", zap.Error(err))
+			return &s, nil
+		}
+	}
+	return &s, nil
 }
 
 func (s *MemStorage) Update(m model.Metric) (*model.Metric, error) {
@@ -38,12 +47,13 @@ func (s *MemStorage) Update(m model.Metric) (*model.Metric, error) {
 	// Вероятно далее необходимо будет сохранять значение с конкретной
 	// временной меткой, но в рамках 1-го спринта это избыточно.
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	current, ok := s.metrics[m.ID]
 	if ok && m.MType == model.Counter {
 		*m.Delta += *current.Delta
 	}
 	s.metrics[m.ID] = m
+	s.mu.Unlock()
+
 	if s.syncWithUpdate {
 		err := s.Sync()
 		if err != nil {

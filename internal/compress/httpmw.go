@@ -59,6 +59,7 @@ func DecompressMiddlewareHandler(next http.Handler) http.Handler {
 		contentEncoding := r.Header.Get("Content-Encoding")
 		if contentEncoding == "gzip" {
 			decompressedReader := DecompressWithGZIP(r.Body)
+			defer r.Body.Close()
 			r.Body = &readCloser{
 				Reader: decompressedReader,
 			}

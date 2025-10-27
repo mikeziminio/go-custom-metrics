@@ -170,14 +170,15 @@ func TestUpdate(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ms := New(false, "", zap.L())
+			ms, err := New(false, false, "", zap.L())
+			require.NoError(t, err)
 			// Initialize with initial metrics
 			for _, v := range tc.initialMetrics {
 				_, err := ms.Update(v)
 				require.NoError(t, err)
 			}
 
-			_, err := ms.Update(tc.updatedModel)
+			_, err = ms.Update(tc.updatedModel)
 			require.NoError(t, err)
 
 			// Test by retrieving all metrics and comparing
@@ -188,8 +189,9 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestGetCounter(t *testing.T) {
-	ms := New(false, "", zap.L())
-	_, err := ms.Update(model.Metric{
+	ms, err := New(false, false, "", zap.L())
+	require.NoError(t, err)
+	_, err = ms.Update(model.Metric{
 		ID:    "some",
 		MType: model.Counter,
 		Delta: helper.NewInt64(t, 1),
@@ -229,8 +231,9 @@ func TestGetCounter(t *testing.T) {
 }
 
 func TestGetGauge(t *testing.T) {
-	ms := New(false, "", zap.L())
-	_, err := ms.Update(model.Metric{
+	ms, err := New(false, false, "", zap.L())
+	require.NoError(t, err)
+	_, err = ms.Update(model.Metric{
 		ID:    "some",
 		MType: model.Gauge,
 		Delta: nil,
@@ -270,8 +273,9 @@ func TestGetGauge(t *testing.T) {
 }
 
 func TestList(t *testing.T) {
-	ms := New(false, "", zap.L())
-	_, err := ms.Update(model.Metric{
+	ms, err := New(false, false, "", zap.L())
+	require.NoError(t, err)
+	_, err = ms.Update(model.Metric{
 		ID:    "some",
 		MType: model.Counter,
 		Delta: helper.NewInt64(t, 1),

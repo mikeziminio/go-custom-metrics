@@ -8,6 +8,7 @@ import (
 	"github.com/mikeziminio/go-custom-metrics/internal/memstorage"
 	"github.com/mikeziminio/go-custom-metrics/internal/server"
 	"github.com/mikeziminio/go-custom-metrics/internal/server/config"
+	"go.uber.org/zap"
 )
 
 func main() {
@@ -27,12 +28,14 @@ func main() {
 	if c.StoreInterval == 0 {
 		syncWithUpdate = true
 	}
-	ms := memstorage.New(syncWithUpdate, c.FileStoragePath, logger)
+	ms, err := memstorage.New(syncWithUpdate, c.Restore, c.FileStoragePath, logger)
+	if err != nil {
+		logger.Fatal("failed to init memstorage", zap.Error(err))
+	}
 
 	s := server.New(
 		c.Address,
 		c.StoreInterval,
-		c.Restore,
 		ms,
 		logger,
 	)

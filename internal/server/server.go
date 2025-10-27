@@ -22,7 +22,6 @@ type Storage interface {
 	List() map[string]model.Metric
 	Get(metricType model.MetricType, metricName string) (*model.Metric, error)
 	Sync() error
-	Restore() error
 }
 
 // todo: next sprints
@@ -35,7 +34,6 @@ type Storage interface {
 type APIServer struct {
 	address       string
 	storeInterval time.Duration
-	restore       bool
 	storage       Storage
 	router        *chi.Mux
 	httpServer    *http.Server
@@ -45,7 +43,6 @@ type APIServer struct {
 func New(
 	address string,
 	storeInterval float64,
-	restore bool,
 	storage Storage,
 	logger *zap.Logger,
 ) *APIServer {
@@ -61,7 +58,6 @@ func New(
 	a := &APIServer{
 		address:       address,
 		storeInterval: time.Duration(float64(time.Second) * storeInterval),
-		restore:       restore,
 		storage:       storage,
 		router:        r,
 		httpServer:    httpServer,
@@ -91,15 +87,6 @@ func (a *APIServer) RegisterRoutes() {
 func (a *APIServer) Run(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-
-	if a.restore {
-		err := a.storage.Restore()
-		if err != nil {
-			a.logger.Fatal("failed to restore storage",
-				zap.Error(err),
-			)
-		}
-	}
 
 	go func() {
 		a.logger.Info("Server started", zap.String("address", a.httpServer.Addr))

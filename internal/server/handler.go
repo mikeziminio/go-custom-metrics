@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
 
 	"github.com/mikeziminio/go-custom-metrics/internal/model"
 )
@@ -17,8 +18,7 @@ import (
 func (a *APIServer) Update(res http.ResponseWriter, req *http.Request) {
 	body, err := io.ReadAll(req.Body)
 	if err != nil {
-		http.Error(res, fmt.Sprintf("failed read request body: %v", err),
-			http.StatusBadRequest)
+		a.handleInternalServerError(res, fmt.Errorf("failed to read request body: %w", err))
 		return
 	}
 
@@ -44,24 +44,25 @@ func (a *APIServer) Update(res http.ResponseWriter, req *http.Request) {
 		Value: data.Value,
 	})
 	if err != nil {
-		http.Error(res, fmt.Sprintf("failed to update metric value %s / %s: %v", data.MType, data.ID, err),
-			http.StatusBadRequest)
+		if errors.Is(err, model.ErrIncorrectMetricType) {
+			http.Error(res, fmt.Sprintf("failed to fetch metric type: %v", data.MType),
+				http.StatusBadRequest)
+			return
+		}
+		a.handleInternalServerError(res, fmt.Errorf("failed to update metric value %s / %s: %v", data.MType, data.ID, err))
 		return
 	}
 
 	resData, err := json.Marshal(m)
 	if err != nil {
-		http.Error(res, fmt.Sprintf("failed to marshal response: %v", err),
-			http.StatusBadRequest)
+		a.handleInternalServerError(res, fmt.Errorf("failed to marshal response: %w", err))
 		return
 	}
 
 	res.Header().Set("Content-Type", "application/json")
 	_, err = res.Write(resData)
 	if err != nil {
-		http.Error(res, fmt.Sprintf("failed to write body: %v", err),
-			http.StatusInternalServerError,
-		)
+		a.handleInternalServerError(res, fmt.Errorf("failed to write response: %w", err))
 		return
 	}
 }
@@ -106,8 +107,7 @@ func (a *APIServer) UpdateByParams(res http.ResponseWriter, req *http.Request) {
 		Value: value,
 	})
 	if err != nil {
-		http.Error(res, fmt.Sprintf("failed to update metric value: %v", err),
-			http.StatusBadRequest)
+		a.handleInternalServerError(res, fmt.Errorf("failed to update metric value: %w", err))
 		return
 	}
 
@@ -117,8 +117,7 @@ func (a *APIServer) UpdateByParams(res http.ResponseWriter, req *http.Request) {
 func (a *APIServer) Get(res http.ResponseWriter, req *http.Request) {
 	body, err := io.ReadAll(req.Body)
 	if err != nil {
-		http.Error(res, fmt.Sprintf("failed read request body: %v", err),
-			http.StatusBadRequest)
+		a.handleInternalServerError(res, fmt.Errorf("failed to read request body: %w", err))
 		return
 	}
 
@@ -142,15 +141,13 @@ func (a *APIServer) Get(res http.ResponseWriter, req *http.Request) {
 				http.StatusNotFound)
 			return
 		}
-		http.Error(res, fmt.Sprintf("failed to get metric %s / %s: %v", data.MType, data.ID, err),
-			http.StatusBadRequest)
+		a.handleInternalServerError(res, fmt.Errorf("failed to get metric: %w", err))
 		return
 	}
 
 	resData, err := json.Marshal(m)
 	if err != nil {
-		http.Error(res, fmt.Sprintf("failed to marshal response: %v", err),
-			http.StatusBadRequest)
+		a.handleInternalServerError(res, fmt.Errorf("failed to marshal response: %w", err))
 		return
 	}
 
@@ -158,8 +155,7 @@ func (a *APIServer) Get(res http.ResponseWriter, req *http.Request) {
 	res.WriteHeader(http.StatusOK)
 	_, err = res.Write(resData)
 	if err != nil {
-		http.Error(res, fmt.Sprintf("failed to write body: %v", err),
-			http.StatusInternalServerError)
+		a.handleInternalServerError(res, fmt.Errorf("failed to write response: %w", err))
 		return
 	}
 }
@@ -181,8 +177,7 @@ func (a *APIServer) GetByParams(res http.ResponseWriter, req *http.Request) {
 				http.StatusNotFound)
 			return
 		}
-		http.Error(res, fmt.Sprintf("failed to get metric %s / %s: %v", metricType, metricName, err),
-			http.StatusBadRequest)
+		a.handleInternalServerError(res, fmt.Errorf("failed to get metric %s / %s: %v", metricType, metricName, err))
 		return
 	}
 
@@ -196,8 +191,7 @@ func (a *APIServer) GetByParams(res http.ResponseWriter, req *http.Request) {
 	res.Header().Set("Content-Type", "text/html")
 	_, err = res.Write([]byte(r))
 	if err != nil {
-		http.Error(res, fmt.Sprintf("failed to write body: %v", err),
-			http.StatusInternalServerError)
+		a.handleInternalServerError(res, fmt.Errorf("failed to write response: %w", err))
 		return
 	}
 }
@@ -218,8 +212,13 @@ func (a *APIServer) List(res http.ResponseWriter, _ *http.Request) {
 	res.Header().Set("Content-Type", "text/html")
 	_, err := res.Write(b.Bytes())
 	if err != nil {
-		http.Error(res, fmt.Sprintf("failed to write body: %v", err),
-			http.StatusInternalServerError)
+		a.handleInternalServerError(res, fmt.Errorf("failed to write response: %w", err))
 		return
 	}
+}
+
+func (a *APIServer) handleInternalServerError(res http.ResponseWriter, err error) {
+	a.logger.Error("Internal server error", zap.Error(err))
+	status := http.StatusInternalServerError
+	http.Error(res, http.StatusText(status), status)
 }

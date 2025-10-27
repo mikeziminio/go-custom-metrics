@@ -55,11 +55,10 @@ tasks:
       - "$BIN/golangci-lint config verify"
 
   lint:
-    desc: Run yandex and local linters
+    desc: Run linters
     cmds:
       - "$BIN/golangci-lint run -c .golangci.yml"
-      - "$BIN/nilaway ./cmd/server"
-      - "$BIN/nilaway ./cmd/agent"
+      - "$BIN/nilaway -pretty-print=true ./..."
 
   mockery:
     desc: Run mockery - update mock files

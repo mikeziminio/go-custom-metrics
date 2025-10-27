@@ -18,17 +18,13 @@ func (s *MemStorage) syncLogger() *zap.Logger {
 	)
 }
 
-func (s *MemStorage) Restore() error {
+func (s *MemStorage) restore() error {
 	logger := s.syncLogger()
 	logger.Info("Start restore from file")
-	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	data, err := os.ReadFile(s.fileStoragePath)
 	if err != nil {
-		// не убиваем сервер если не удалось восстановить метрики из файла
-		logger.Error("Failed to restore from file", zap.Error(err))
-		return nil
+		return fmt.Errorf("failed to restore from file: %w", err)
 	}
 
 	var metricList []model.Metric
@@ -50,10 +46,12 @@ func (s *MemStorage) Restore() error {
 func (s *MemStorage) Sync() error {
 	logger := s.syncLogger()
 	logger.Info("Start sync with file")
-	s.mu.RLock()
-	defer s.mu.RUnlock()
 
-	res := slices.Collect(maps.Values(s.metrics))
+	s.mu.RLock()
+	values := maps.Values(s.metrics)
+	s.mu.RUnlock()
+
+	res := slices.Collect(values)
 	data, err := json.Marshal(res)
 	if err != nil {
 		return fmt.Errorf("failed to marshal metrics: %w", err)
