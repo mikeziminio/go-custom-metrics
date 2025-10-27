@@ -46,10 +46,13 @@ func (a *APIServer) Update(res http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		if errors.Is(err, model.ErrIncorrectMetricType) {
 			http.Error(res, fmt.Sprintf("failed to fetch metric type: %v", data.MType),
-				http.StatusBadRequest)
+				http.StatusBadRequest,
+			)
 			return
 		}
-		a.handleInternalServerError(res, fmt.Errorf("failed to update metric value %s / %s: %v", data.MType, data.ID, err))
+		a.handleInternalServerError(res,
+			fmt.Errorf("failed to update metric value %s / %s: %v", data.MType, data.ID, err),
+		)
 		return
 	}
 
@@ -72,7 +75,8 @@ func (a *APIServer) UpdateByParams(res http.ResponseWriter, req *http.Request) {
 	metricType, err := model.NewMetricTypeFromString(mt)
 	if err != nil {
 		http.Error(res, fmt.Sprintf("failed to fetch metric type: %v", err),
-			http.StatusBadRequest)
+			http.StatusBadRequest,
+		)
 		return
 	}
 	metricName := chi.URLParam(req, "metricName")
@@ -84,7 +88,8 @@ func (a *APIServer) UpdateByParams(res http.ResponseWriter, req *http.Request) {
 		d, err := strconv.ParseInt(val, 10, 64)
 		if err != nil {
 			http.Error(res, fmt.Sprintf("failed to parse counter value: %v", err),
-				http.StatusBadRequest)
+				http.StatusBadRequest,
+			)
 			return
 		}
 		delta = &d
@@ -94,7 +99,8 @@ func (a *APIServer) UpdateByParams(res http.ResponseWriter, req *http.Request) {
 		v, err := strconv.ParseFloat(val, 64)
 		if err != nil {
 			http.Error(res, fmt.Sprintf("failed to parse gauge value: %v", err),
-				http.StatusBadRequest)
+				http.StatusBadRequest,
+			)
 			return
 		}
 		value = &v
@@ -130,7 +136,8 @@ func (a *APIServer) Get(res http.ResponseWriter, req *http.Request) {
 	err = json.Unmarshal(body, &data)
 	if err != nil {
 		http.Error(res, fmt.Sprintf("failed to validate request body: %v", err),
-			http.StatusBadRequest)
+			http.StatusBadRequest,
+		)
 		return
 	}
 
@@ -138,7 +145,8 @@ func (a *APIServer) Get(res http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		if errors.Is(err, model.ErrMetricNotFound) {
 			http.Error(res, fmt.Sprintf("metric not found %s / %s: %v", data.MType, data.ID, err),
-				http.StatusNotFound)
+				http.StatusNotFound,
+			)
 			return
 		}
 		a.handleInternalServerError(res, fmt.Errorf("failed to get metric: %w", err))
@@ -165,7 +173,8 @@ func (a *APIServer) GetByParams(res http.ResponseWriter, req *http.Request) {
 	metricType, err := model.NewMetricTypeFromString(mt)
 	if err != nil {
 		http.Error(res, fmt.Sprintf("failed to fetch metric type: %v", err),
-			http.StatusBadRequest)
+			http.StatusBadRequest,
+		)
 		return
 	}
 	metricName := chi.URLParam(req, "metricName")
@@ -174,7 +183,8 @@ func (a *APIServer) GetByParams(res http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		if errors.Is(err, model.ErrMetricNotFound) {
 			http.Error(res, fmt.Sprintf("metric not found %s / %s: %v", metricType, metricName, err),
-				http.StatusNotFound)
+				http.StatusNotFound,
+			)
 			return
 		}
 		a.handleInternalServerError(res, fmt.Errorf("failed to get metric %s / %s: %v", metricType, metricName, err))
