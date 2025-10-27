@@ -211,11 +211,12 @@ func (a *APIServer) List(res http.ResponseWriter, _ *http.Request) {
 	metrics := a.storage.List()
 	for id, m := range metrics {
 		b.WriteString(id)
+		b.WriteString(" ")
 		switch m.MType {
 		case model.Gauge:
-			b.WriteString(fmt.Sprintf(" %.5f\n", *m.Value))
+			b.WriteString(strconv.FormatFloat(*m.Value, 'f', 5, 64))
 		case model.Counter:
-			b.WriteString(fmt.Sprintf(" %d\n", *m.Delta))
+			b.WriteString(strconv.FormatInt(*m.Delta, 10))
 		}
 	}
 
