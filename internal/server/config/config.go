@@ -12,6 +12,7 @@ type Config struct {
 	StoreInterval   float64 `envconfig:"STORE_INTERVAL"`
 	FileStoragePath string  `envconfig:"FILE_STORAGE_PATH"`
 	Restore         bool    `envconfig:"RESTORE"`
+	DatabaseDSN     string  `envconfig:"DATABASE_DSN"`
 	LogLevel        string
 }
 
@@ -19,6 +20,7 @@ var (
 	DefaultLogLevel        = "info"
 	DefaultStoreInterval   = 300.0
 	DefaultFileStoragePath = "./data.json"
+	DefaultDatabaseDSN     = ""
 )
 
 func NewFromEnvsAndFlags() (*Config, error) {
@@ -33,6 +35,8 @@ func NewFromEnvsAndFlags() (*Config, error) {
 		"путь до файла, куда сохраняются текущие значения")
 	flag.BoolVar(&c.Restore, "r", false,
 		"следует ли загружать ранее сохранённые значения из указанного файла при старте сервера")
+	flag.StringVar(&c.DatabaseDSN, "d", DefaultDatabaseDSN,
+		"database DSN")
 	flag.Parse()
 
 	// по ТЗ переменные среды перезаписывают флаги

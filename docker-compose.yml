@@ -14,3 +14,14 @@ services:
         && go build -o ./bin/server ./cmd/server
         && go build -o ./bin/agent ./cmd/agent
         && . ./test.sh
+
+      # && tail -f /dev/null
+
+  postgres:
+    image: postgres:18.0-alpine
+    restart: always
+    shm_size: 128mb
+    environment:
+      POSTGRES_DB: praktikum
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres

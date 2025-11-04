@@ -4,6 +4,7 @@ import (
 	"context"
 	stdlog "log"
 
+	"github.com/mikeziminio/go-custom-metrics/internal/dbstorage"
 	"github.com/mikeziminio/go-custom-metrics/internal/log"
 	"github.com/mikeziminio/go-custom-metrics/internal/memstorage"
 	"github.com/mikeziminio/go-custom-metrics/internal/server"
@@ -33,10 +34,13 @@ func main() {
 		logger.Fatal("failed to init memstorage", zap.Error(err))
 	}
 
+	ds := dbstorage.New(c.DatabaseDSN)
+
 	s := server.New(
 		c.Address,
 		c.StoreInterval,
 		ms,
+		ds,
 		logger,
 	)
 	s.RegisterRoutes()

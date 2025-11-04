@@ -228,6 +228,15 @@ func (a *APIServer) List(res http.ResponseWriter, _ *http.Request) {
 	}
 }
 
+func (a *APIServer) Ping(res http.ResponseWriter, req *http.Request) {
+	err := a.dbStorage.Ping(req.Context())
+	if err != nil {
+		a.handleInternalServerError(res, err)
+		return
+	}
+	res.WriteHeader(http.StatusOK)
+}
+
 func (a *APIServer) handleInternalServerError(res http.ResponseWriter, err error) {
 	a.logger.Error("Internal server error", zap.Error(err))
 	status := http.StatusInternalServerError

@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/mikeziminio/go-custom-metrics/internal/compress"
+	"github.com/mikeziminio/go-custom-metrics/internal/dbstorage"
 	"github.com/mikeziminio/go-custom-metrics/internal/log"
 	"github.com/mikeziminio/go-custom-metrics/internal/model"
 )
@@ -34,6 +35,7 @@ type APIServer struct {
 	address       string
 	storeInterval time.Duration
 	storage       Storage
+	dbStorage     *dbstorage.DBStorage
 	router        *chi.Mux
 	httpServer    *http.Server
 	logger        *zap.Logger
@@ -43,6 +45,7 @@ func New(
 	address string,
 	storeInterval float64,
 	storage Storage,
+	dbStorage *dbstorage.DBStorage,
 	logger *zap.Logger,
 ) *APIServer {
 	r := chi.NewRouter()
@@ -58,6 +61,7 @@ func New(
 		address:       address,
 		storeInterval: time.Duration(float64(time.Second) * storeInterval),
 		storage:       storage,
+		dbStorage:     dbStorage,
 		router:        r,
 		httpServer:    httpServer,
 		logger:        logger,
@@ -77,6 +81,7 @@ func (a *APIServer) RegisterRoutes() {
 	r.Use(compress.CompressMiddlewareHandler)
 
 	r.Get("/", a.List)
+	r.Get("/ping", a.Ping)
 	r.Post("/value", a.Get)
 	r.Get("/value/{metricType}/{metricName}", a.GetByParams)
 	r.Post("/update", a.Update)
