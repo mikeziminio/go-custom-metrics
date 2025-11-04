@@ -15,7 +15,6 @@ services:
         && go build -o ./bin/agent ./cmd/agent
         && . ./test.sh
 
-      # && tail -f /dev/null
 
   postgres:
     image: postgres:18.0-alpine
