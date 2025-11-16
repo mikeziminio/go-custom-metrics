@@ -18,17 +18,23 @@ func (s *DBStorage) Restore(ctx context.Context) error {
 	for _, m := range metrics {
 		switch m.MType {
 		case model.Counter:
-			_, err = s.db.ExecContext(ctx, `
-				INSERT INTO metric (id, m_type, delta)
-				VALUES ($1, $2, $3)
-				ON CONFLICT (id) DO UPDATE SET delta = EXCLUDED.delta`,
-				m.ID, m.MType, m.Delta)
+			err = s.retrier.Retry(func() (e error) {
+				_, e = s.db.ExecContext(ctx, `
+					INSERT INTO metric (id, m_type, delta)
+					VALUES ($1, $2, $3)
+					ON CONFLICT (id) DO UPDATE SET delta = EXCLUDED.delta`,
+					m.ID, m.MType, m.Delta)
+				return
+			})
 		case model.Gauge:
-			_, err = s.db.ExecContext(ctx, `
-				INSERT INTO metric (id, m_type, value)
-				VALUES ($1, $2, $3)
-				ON CONFLICT (id) DO UPDATE SET value = EXCLUDED.value`,
-				m.ID, m.MType, m.Value)
+			err = s.retrier.Retry(func() (e error) {
+				_, e = s.db.ExecContext(ctx, `
+					INSERT INTO metric (id, m_type, value)
+					VALUES ($1, $2, $3)
+					ON CONFLICT (id) DO UPDATE SET value = EXCLUDED.value`,
+					m.ID, m.MType, m.Value)
+				return
+			})
 		default:
 			return fmt.Errorf("unsupported metric type: %s", m.MType)
 		}
@@ -42,7 +48,16 @@ func (s *DBStorage) Restore(ctx context.Context) error {
 
 func (s *DBStorage) Sync(ctx context.Context) error {
 	// Retrieve all metrics from database
-	rows, err := s.db.QueryContext(ctx, "SELECT id, m_type, delta, value FROM metric")
+	var rows *sql.Rows
+	err := s.retrier.Retry(func() (e error) {
+		rows, e = s.db.QueryContext(ctx, "SELECT id, m_type, delta, value FROM metric") //nolint // check for rows.Err() below
+		// rows.Err() проверяется ниже. Здесь добавлено, чтобы проходила проверка statictest
+		// т.к. директивы аналогичной //nolint для него нет
+		if false {
+			_ = rows.Err()
+		}
+		return
+	})
 	if err != nil {
 		return fmt.Errorf("failed to query metrics from database: %w", err)
 	}

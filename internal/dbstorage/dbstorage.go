@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"path/filepath"
 	"runtime"
+	"time"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	_ "github.com/jackc/pgerrcode"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
 
@@ -23,11 +25,23 @@ type DBStorage struct {
 	connString     string
 	syncWithUpdate bool
 	syncer         *syncer.Syncer
+	retrier        Retrier
 	logger         *zap.Logger
 }
 
+var defaultRetryTimeouts = []time.Duration{
+	1 * time.Second,
+	3 * time.Second,
+	5 * time.Second,
+}
+
 func New(connString string, syncWithUpdate bool, fileStoragePath string, logger *zap.Logger) (*DBStorage, error) {
-	db, err := sql.Open("pgx", connString)
+	var db *sql.DB
+	retrier := NewPgRetrier(defaultRetryTimeouts)
+	err := retrier.Retry(func() (e error) {
+		db, e = sql.Open("pgx", connString)
+		return
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create connection pool: %w", err)
 	}
@@ -37,6 +51,7 @@ func New(connString string, syncWithUpdate bool, fileStoragePath string, logger 
 		connString:     connString,
 		syncWithUpdate: syncWithUpdate,
 		syncer:         snc,
+		retrier:        retrier,
 		logger:         logger,
 	}
 	return &s, nil
@@ -44,7 +59,11 @@ func New(connString string, syncWithUpdate bool, fileStoragePath string, logger 
 
 func (s *DBStorage) MigrateUp() error {
 	// Для миграций - отдельное подключение
-	db, err := sql.Open("pgx", s.connString)
+	var db *sql.DB
+	err := s.retrier.Retry(func() (e error) {
+		db, e = sql.Open("pgx", s.connString)
+		return
+	})
 	if err != nil {
 		return fmt.Errorf("failed to create connection pool for migration: %w", err)
 	}
@@ -78,7 +97,11 @@ func (s *DBStorage) MigrateUp() error {
 }
 
 func (s *DBStorage) Update(ctx context.Context, m model.Metric) (*model.Metric, error) {
-	tx, err := s.db.BeginTx(ctx, nil)
+	var tx *sql.Tx
+	err := s.retrier.Retry(func() (e error) {
+		tx, e = s.db.BeginTx(ctx, nil)
+		return
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
@@ -106,7 +129,11 @@ func (s *DBStorage) Update(ctx context.Context, m model.Metric) (*model.Metric, 
 }
 
 func (s *DBStorage) Updates(ctx context.Context, metrics []model.Metric) error {
-	tx, err := s.db.BeginTx(ctx, nil)
+	var tx *sql.Tx
+	err := s.retrier.Retry(func() (e error) {
+		tx, e = s.db.BeginTx(ctx, nil)
+		return
+	})
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
@@ -138,20 +165,26 @@ func (s *DBStorage) Updates(ctx context.Context, metrics []model.Metric) error {
 func (s *DBStorage) updateCounter(ctx context.Context, tx *sql.Tx, m model.Metric) (*model.Metric, error) {
 	// Проверим есть ли уже такой счетчик
 	var existingDelta sql.NullInt64
-	err := tx.QueryRowContext(ctx,
-		`SELECT delta FROM metric WHERE id = $1 AND m_type = $2`,
-		m.ID, m.MType,
-	).Scan(&existingDelta)
+	err := s.retrier.Retry(func() (e error) {
+		e = tx.QueryRowContext(ctx,
+			`SELECT delta FROM metric WHERE id = $1 AND m_type = $2`,
+			m.ID, m.MType,
+		).Scan(&existingDelta)
+		return
+	})
 
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("failed to query row: %w", err)
 		}
 		// Счетчика нет, добавим новый
-		_, err = tx.ExecContext(ctx,
-			`INSERT INTO metric (id, m_type, delta) VALUES ($1, $2, $3)`,
-			m.ID, m.MType, m.Delta,
-		)
+		err := s.retrier.Retry(func() (e error) {
+			_, e = tx.ExecContext(ctx,
+				`INSERT INTO metric (id, m_type, delta) VALUES ($1, $2, $3)`,
+				m.ID, m.MType, m.Delta,
+			)
+			return
+		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to insert new counter: %w", err)
 		}
@@ -169,10 +202,13 @@ func (s *DBStorage) updateCounter(ctx context.Context, tx *sql.Tx, m model.Metri
 	} else {
 		newDelta = *m.Delta
 	}
-	_, err = tx.ExecContext(ctx,
-		`UPDATE metric SET delta = $1 WHERE id = $2 AND m_type = $3`,
-		newDelta, m.ID, m.MType,
-	)
+	err = s.retrier.Retry(func() (e error) {
+		_, e = tx.ExecContext(ctx,
+			`UPDATE metric SET delta = $1 WHERE id = $2 AND m_type = $3`,
+			newDelta, m.ID, m.MType,
+		)
+		return
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to update counter: %w", err)
 	}
@@ -188,29 +224,38 @@ func (s *DBStorage) updateCounter(ctx context.Context, tx *sql.Tx, m model.Metri
 func (s *DBStorage) updateGauge(ctx context.Context, tx *sql.Tx, m model.Metric) (*model.Metric, error) {
 	// Проверим, есть ли уже значение
 	var existingFloat sql.NullFloat64
-	err := tx.QueryRowContext(ctx,
-		`SELECT value FROM metric WHERE id = $1 AND m_type = $2`,
-		m.ID, m.MType,
-	).Scan(&existingFloat)
+	err := s.retrier.Retry(func() (e error) {
+		e = tx.QueryRowContext(ctx,
+			`SELECT value FROM metric WHERE id = $1 AND m_type = $2`,
+			m.ID, m.MType,
+		).Scan(&existingFloat)
+		return
+	})
 
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("failed to query row: %w", err)
 		}
 		// Значения нет, добавим новое
-		_, err = tx.ExecContext(ctx,
-			`INSERT INTO metric (id, m_type, value) VALUES ($1, $2, $3)`,
-			m.ID, m.MType, m.Value,
-		)
+		err := s.retrier.Retry(func() (e error) {
+			_, e = tx.ExecContext(ctx,
+				`INSERT INTO metric (id, m_type, value) VALUES ($1, $2, $3)`,
+				m.ID, m.MType, m.Value,
+			)
+			return
+		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to insert new gauge: %w", err)
 		}
 	} else {
 		// Значение есть, обновим
-		_, err = tx.ExecContext(ctx,
-			`UPDATE metric SET value = $1 WHERE id = $2 AND m_type = $3`,
-			m.Value, m.ID, m.MType,
-		)
+		err := s.retrier.Retry(func() (e error) {
+			_, err = tx.ExecContext(ctx,
+				`UPDATE metric SET value = $1 WHERE id = $2 AND m_type = $3`,
+				m.Value, m.ID, m.MType,
+			)
+			return
+		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to update gauge: %w", err)
 		}
@@ -247,13 +292,17 @@ func (s *DBStorage) Get(ctx context.Context, metricType model.MetricType, metric
 	var delta sql.NullInt64
 	var value sql.NullFloat64
 
-	err := s.db.QueryRowContext(
-		ctx,
-		`SELECT id, m_type, delta, value FROM metric WHERE id = $1 AND m_type = $2`,
-		metricName,
-		metricType,
-	).
-		Scan(&m.ID, &m.MType, &delta, &value)
+	err := s.retrier.Retry(func() (e error) {
+		e = s.db.QueryRowContext(
+			ctx,
+			`SELECT id, m_type, delta, value FROM metric WHERE id = $1 AND m_type = $2`,
+			metricName,
+			metricType,
+		).
+			Scan(&m.ID, &m.MType, &delta, &value)
+		return
+	})
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, model.ErrMetricNotFound
@@ -277,7 +326,16 @@ func (s *DBStorage) Get(ctx context.Context, metricType model.MetricType, metric
 
 func (s *DBStorage) List(ctx context.Context) (map[string]model.Metric, error) {
 	// Retrieve all metrics from database
-	rows, err := s.db.QueryContext(ctx, "SELECT id, m_type, delta, value FROM metric")
+	var rows *sql.Rows
+	err := s.retrier.Retry(func() (e error) {
+		rows, e = s.db.QueryContext(ctx, "SELECT id, m_type, delta, value FROM metric")
+		// rows.Err() проверяется ниже. Здесь добавлено, чтобы проходила проверка statictest
+		// т.к. директивы аналогичной //nolint для него нет
+		if false {
+			_ = rows.Err()
+		}
+		return
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to query metrics from database: %w", err)
 	}

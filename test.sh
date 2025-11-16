@@ -77,3 +77,10 @@ TEMP_FILE=$(./bin/random tempfile)
     -database-dsn='postgres://postgres:postgres@postgres:5432/praktikum?sslmode=disable' \
     -server-port=$SERVER_PORT \
     -source-path=.
+
+./bin/metricstest -test.v -test.run=^TestIteration13$ \
+    -agent-binary-path=./bin/agent \
+    -binary-path=./bin/server \
+    -database-dsn='postgres://postgres:postgres@postgres:5432/praktikum?sslmode=disable' \
+    -server-port=$SERVER_PORT \
+    -source-path=.
