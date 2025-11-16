@@ -5,9 +5,10 @@
 package server
 
 import (
-	mock "github.com/stretchr/testify/mock"
+	"context"
 
 	"github.com/mikeziminio/go-custom-metrics/internal/model"
+	mock "github.com/stretchr/testify/mock"
 )
 
 // NewMockStorage creates a new instance of MockStorage. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
@@ -38,8 +39,8 @@ func (_m *MockStorage) EXPECT() *MockStorage_Expecter {
 }
 
 // Get provides a mock function for the type MockStorage
-func (_mock *MockStorage) Get(metricType model.MetricType, metricName string) (*model.Metric, error) {
-	ret := _mock.Called(metricType, metricName)
+func (_mock *MockStorage) Get(ctx context.Context, metricType model.MetricType, metricName string) (*model.Metric, error) {
+	ret := _mock.Called(ctx, metricType, metricName)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Get")
@@ -47,18 +48,18 @@ func (_mock *MockStorage) Get(metricType model.MetricType, metricName string) (*
 
 	var r0 *model.Metric
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(model.MetricType, string) (*model.Metric, error)); ok {
-		return returnFunc(metricType, metricName)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, model.MetricType, string) (*model.Metric, error)); ok {
+		return returnFunc(ctx, metricType, metricName)
 	}
-	if returnFunc, ok := ret.Get(0).(func(model.MetricType, string) *model.Metric); ok {
-		r0 = returnFunc(metricType, metricName)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, model.MetricType, string) *model.Metric); ok {
+		r0 = returnFunc(ctx, metricType, metricName)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*model.Metric)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(model.MetricType, string) error); ok {
-		r1 = returnFunc(metricType, metricName)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, model.MetricType, string) error); ok {
+		r1 = returnFunc(ctx, metricType, metricName)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -71,25 +72,31 @@ type MockStorage_Get_Call struct {
 }
 
 // Get is a helper method to define mock.On call
+//   - ctx context.Context
 //   - metricType model.MetricType
 //   - metricName string
-func (_e *MockStorage_Expecter) Get(metricType interface{}, metricName interface{}) *MockStorage_Get_Call {
-	return &MockStorage_Get_Call{Call: _e.mock.On("Get", metricType, metricName)}
+func (_e *MockStorage_Expecter) Get(ctx interface{}, metricType interface{}, metricName interface{}) *MockStorage_Get_Call {
+	return &MockStorage_Get_Call{Call: _e.mock.On("Get", ctx, metricType, metricName)}
 }
 
-func (_c *MockStorage_Get_Call) Run(run func(metricType model.MetricType, metricName string)) *MockStorage_Get_Call {
+func (_c *MockStorage_Get_Call) Run(run func(ctx context.Context, metricType model.MetricType, metricName string)) *MockStorage_Get_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 model.MetricType
+		var arg0 context.Context
 		if args[0] != nil {
-			arg0 = args[0].(model.MetricType)
+			arg0 = args[0].(context.Context)
 		}
-		var arg1 string
+		var arg1 model.MetricType
 		if args[1] != nil {
-			arg1 = args[1].(string)
+			arg1 = args[1].(model.MetricType)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
 		}
 		run(
 			arg0,
 			arg1,
+			arg2,
 		)
 	})
 	return _c
@@ -100,28 +107,37 @@ func (_c *MockStorage_Get_Call) Return(metric *model.Metric, err error) *MockSto
 	return _c
 }
 
-func (_c *MockStorage_Get_Call) RunAndReturn(run func(metricType model.MetricType, metricName string) (*model.Metric, error)) *MockStorage_Get_Call {
+func (_c *MockStorage_Get_Call) RunAndReturn(run func(ctx context.Context, metricType model.MetricType, metricName string) (*model.Metric, error)) *MockStorage_Get_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // List provides a mock function for the type MockStorage
-func (_mock *MockStorage) List() map[string]model.Metric {
-	ret := _mock.Called()
+func (_mock *MockStorage) List(ctx context.Context) (map[string]model.Metric, error) {
+	ret := _mock.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for List")
 	}
 
 	var r0 map[string]model.Metric
-	if returnFunc, ok := ret.Get(0).(func() map[string]model.Metric); ok {
-		r0 = returnFunc()
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context) (map[string]model.Metric, error)); ok {
+		return returnFunc(ctx)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context) map[string]model.Metric); ok {
+		r0 = returnFunc(ctx)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(map[string]model.Metric)
 		}
 	}
-	return r0
+	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = returnFunc(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
 }
 
 // MockStorage_List_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'List'
@@ -130,38 +146,45 @@ type MockStorage_List_Call struct {
 }
 
 // List is a helper method to define mock.On call
-func (_e *MockStorage_Expecter) List() *MockStorage_List_Call {
-	return &MockStorage_List_Call{Call: _e.mock.On("List")}
+//   - ctx context.Context
+func (_e *MockStorage_Expecter) List(ctx interface{}) *MockStorage_List_Call {
+	return &MockStorage_List_Call{Call: _e.mock.On("List", ctx)}
 }
 
-func (_c *MockStorage_List_Call) Run(run func()) *MockStorage_List_Call {
+func (_c *MockStorage_List_Call) Run(run func(ctx context.Context)) *MockStorage_List_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run()
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		run(
+			arg0,
+		)
 	})
 	return _c
 }
 
-func (_c *MockStorage_List_Call) Return(stringToMetric map[string]model.Metric) *MockStorage_List_Call {
-	_c.Call.Return(stringToMetric)
+func (_c *MockStorage_List_Call) Return(stringToMetric map[string]model.Metric, err error) *MockStorage_List_Call {
+	_c.Call.Return(stringToMetric, err)
 	return _c
 }
 
-func (_c *MockStorage_List_Call) RunAndReturn(run func() map[string]model.Metric) *MockStorage_List_Call {
+func (_c *MockStorage_List_Call) RunAndReturn(run func(ctx context.Context) (map[string]model.Metric, error)) *MockStorage_List_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // Restore provides a mock function for the type MockStorage
-func (_mock *MockStorage) Restore() error {
-	ret := _mock.Called()
+func (_mock *MockStorage) Restore(ctx context.Context) error {
+	ret := _mock.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Restore")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func() error); ok {
-		r0 = returnFunc()
+	if returnFunc, ok := ret.Get(0).(func(context.Context) error); ok {
+		r0 = returnFunc(ctx)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -174,13 +197,20 @@ type MockStorage_Restore_Call struct {
 }
 
 // Restore is a helper method to define mock.On call
-func (_e *MockStorage_Expecter) Restore() *MockStorage_Restore_Call {
-	return &MockStorage_Restore_Call{Call: _e.mock.On("Restore")}
+//   - ctx context.Context
+func (_e *MockStorage_Expecter) Restore(ctx interface{}) *MockStorage_Restore_Call {
+	return &MockStorage_Restore_Call{Call: _e.mock.On("Restore", ctx)}
 }
 
-func (_c *MockStorage_Restore_Call) Run(run func()) *MockStorage_Restore_Call {
+func (_c *MockStorage_Restore_Call) Run(run func(ctx context.Context)) *MockStorage_Restore_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run()
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		run(
+			arg0,
+		)
 	})
 	return _c
 }
@@ -190,22 +220,22 @@ func (_c *MockStorage_Restore_Call) Return(err error) *MockStorage_Restore_Call 
 	return _c
 }
 
-func (_c *MockStorage_Restore_Call) RunAndReturn(run func() error) *MockStorage_Restore_Call {
+func (_c *MockStorage_Restore_Call) RunAndReturn(run func(ctx context.Context) error) *MockStorage_Restore_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // Sync provides a mock function for the type MockStorage
-func (_mock *MockStorage) Sync() error {
-	ret := _mock.Called()
+func (_mock *MockStorage) Sync(ctx context.Context) error {
+	ret := _mock.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Sync")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func() error); ok {
-		r0 = returnFunc()
+	if returnFunc, ok := ret.Get(0).(func(context.Context) error); ok {
+		r0 = returnFunc(ctx)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -218,13 +248,20 @@ type MockStorage_Sync_Call struct {
 }
 
 // Sync is a helper method to define mock.On call
-func (_e *MockStorage_Expecter) Sync() *MockStorage_Sync_Call {
-	return &MockStorage_Sync_Call{Call: _e.mock.On("Sync")}
+//   - ctx context.Context
+func (_e *MockStorage_Expecter) Sync(ctx interface{}) *MockStorage_Sync_Call {
+	return &MockStorage_Sync_Call{Call: _e.mock.On("Sync", ctx)}
 }
 
-func (_c *MockStorage_Sync_Call) Run(run func()) *MockStorage_Sync_Call {
+func (_c *MockStorage_Sync_Call) Run(run func(ctx context.Context)) *MockStorage_Sync_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run()
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		run(
+			arg0,
+		)
 	})
 	return _c
 }
@@ -234,14 +271,14 @@ func (_c *MockStorage_Sync_Call) Return(err error) *MockStorage_Sync_Call {
 	return _c
 }
 
-func (_c *MockStorage_Sync_Call) RunAndReturn(run func() error) *MockStorage_Sync_Call {
+func (_c *MockStorage_Sync_Call) RunAndReturn(run func(ctx context.Context) error) *MockStorage_Sync_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // Update provides a mock function for the type MockStorage
-func (_mock *MockStorage) Update(m model.Metric) (*model.Metric, error) {
-	ret := _mock.Called(m)
+func (_mock *MockStorage) Update(ctx context.Context, m model.Metric) (*model.Metric, error) {
+	ret := _mock.Called(ctx, m)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Update")
@@ -249,18 +286,18 @@ func (_mock *MockStorage) Update(m model.Metric) (*model.Metric, error) {
 
 	var r0 *model.Metric
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(model.Metric) (*model.Metric, error)); ok {
-		return returnFunc(m)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, model.Metric) (*model.Metric, error)); ok {
+		return returnFunc(ctx, m)
 	}
-	if returnFunc, ok := ret.Get(0).(func(model.Metric) *model.Metric); ok {
-		r0 = returnFunc(m)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, model.Metric) *model.Metric); ok {
+		r0 = returnFunc(ctx, m)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*model.Metric)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(model.Metric) error); ok {
-		r1 = returnFunc(m)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, model.Metric) error); ok {
+		r1 = returnFunc(ctx, m)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -273,19 +310,25 @@ type MockStorage_Update_Call struct {
 }
 
 // Update is a helper method to define mock.On call
+//   - ctx context.Context
 //   - m model.Metric
-func (_e *MockStorage_Expecter) Update(m interface{}) *MockStorage_Update_Call {
-	return &MockStorage_Update_Call{Call: _e.mock.On("Update", m)}
+func (_e *MockStorage_Expecter) Update(ctx interface{}, m interface{}) *MockStorage_Update_Call {
+	return &MockStorage_Update_Call{Call: _e.mock.On("Update", ctx, m)}
 }
 
-func (_c *MockStorage_Update_Call) Run(run func(m model.Metric)) *MockStorage_Update_Call {
+func (_c *MockStorage_Update_Call) Run(run func(ctx context.Context, m model.Metric)) *MockStorage_Update_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 model.Metric
+		var arg0 context.Context
 		if args[0] != nil {
-			arg0 = args[0].(model.Metric)
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 model.Metric
+		if args[1] != nil {
+			arg1 = args[1].(model.Metric)
 		}
 		run(
 			arg0,
+			arg1,
 		)
 	})
 	return _c
@@ -296,7 +339,64 @@ func (_c *MockStorage_Update_Call) Return(metric *model.Metric, err error) *Mock
 	return _c
 }
 
-func (_c *MockStorage_Update_Call) RunAndReturn(run func(m model.Metric) (*model.Metric, error)) *MockStorage_Update_Call {
+func (_c *MockStorage_Update_Call) RunAndReturn(run func(ctx context.Context, m model.Metric) (*model.Metric, error)) *MockStorage_Update_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Updates provides a mock function for the type MockStorage
+func (_mock *MockStorage) Updates(ctx context.Context, metrics []model.Metric) error {
+	ret := _mock.Called(ctx, metrics)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Updates")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, []model.Metric) error); ok {
+		r0 = returnFunc(ctx, metrics)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockStorage_Updates_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Updates'
+type MockStorage_Updates_Call struct {
+	*mock.Call
+}
+
+// Updates is a helper method to define mock.On call
+//   - ctx context.Context
+//   - metrics []model.Metric
+func (_e *MockStorage_Expecter) Updates(ctx interface{}, metrics interface{}) *MockStorage_Updates_Call {
+	return &MockStorage_Updates_Call{Call: _e.mock.On("Updates", ctx, metrics)}
+}
+
+func (_c *MockStorage_Updates_Call) Run(run func(ctx context.Context, metrics []model.Metric)) *MockStorage_Updates_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 []model.Metric
+		if args[1] != nil {
+			arg1 = args[1].([]model.Metric)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockStorage_Updates_Call) Return(err error) *MockStorage_Updates_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockStorage_Updates_Call) RunAndReturn(run func(ctx context.Context, metrics []model.Metric) error) *MockStorage_Updates_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -1,0 +1,59 @@
+package syncer
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+
+	"github.com/mikeziminio/go-custom-metrics/internal/model"
+	"go.uber.org/zap"
+)
+
+const (
+	StorageFileMode = 0600
+)
+
+type Syncer struct {
+	fileStoragePath string
+	logger          *zap.Logger
+}
+
+func New(fileStoragePath string, logger *zap.Logger) *Syncer {
+	return &Syncer{
+		fileStoragePath: fileStoragePath,
+		logger: logger.With(
+			zap.String("fileStoragePath", fileStoragePath),
+		),
+	}
+}
+
+func (s *Syncer) Restore() ([]model.Metric, error) {
+	data, err := os.ReadFile(s.fileStoragePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to restore from file: %w", err)
+	}
+
+	var metricSlice []model.Metric
+
+	err = json.Unmarshal(data, &metricSlice)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal metrics: %w", err)
+	}
+
+	return metricSlice, nil
+}
+
+func (s *Syncer) Sync(metricSlice []model.Metric) error {
+	data, err := json.Marshal(metricSlice)
+	if err != nil {
+		return fmt.Errorf("failed to marshal metrics: %w", err)
+	}
+
+	err = os.WriteFile(s.fileStoragePath, data, StorageFileMode)
+	if err != nil {
+		return fmt.Errorf("failed to write %d bytes to %s",
+			len(data), s.fileStoragePath)
+	}
+
+	return nil
+}

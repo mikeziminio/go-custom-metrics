@@ -28,6 +28,7 @@ func main() {
 		c.PollInterval,
 		c.ReportInterval,
 		c.UseCompress,
+		c.UseBatchUpdate,
 		logger,
 	)
 

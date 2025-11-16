@@ -16,6 +16,12 @@ tasks:
       - "go build -o $BIN/server ./cmd/server"
       - "$BIN/server {{.CLI_ARGS}}"
 
+  server-with-postgres:
+    desc: Run server, specify args after --
+    cmds:
+      - "go build -o $BIN/server ./cmd/server"
+      - "$BIN/server -d 'postgres://postgres:postgres@localhost:5432/praktikum?sslmode=disable' {{.CLI_ARGS}}"
+
   agent:
     desc: Run agent, specify args after --
     cmds:
@@ -25,7 +31,27 @@ tasks:
   test-build:
     desc: Rebuild docker image for yandex tests
     cmds:
-      - docker-compose build --no-cache
+      - docker compose --no-cache build
+
+  postgres-up:
+    desc: Docker compose up postgres container
+    cmds:
+      - docker compose -f docker-compose-postgres.yml up -d
+
+  postgres-ps:
+    desc: Docker compose status postgres container
+    cmds:
+      - docker compose -f docker-compose-postgres.yml ps
+
+  postgres-psql:
+    desc: Run psql inside postgres container
+    cmds:
+      - docker compose run -it postgres "psql" "postgres://postgres:postgres@postgres:5432/praktikum?sslmode=disable"
+
+  postgres-down:
+    desc: Docker compose down postgres container
+    cmds:
+      - docker compose -f docker-compose-postgres.yml down --remove-orphans
 
   test-all:
     desc: Run all linters and tests
@@ -59,6 +85,21 @@ tasks:
     cmds:
       - "$BIN/golangci-lint run -c .golangci.yml"
       - "$BIN/nilaway -pretty-print=true ./..."
+
+  migrate-prepare:
+    desc: Install golang-migrate
+    cmds:
+      - "GOBIN=$BIN go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest"
+
+  migrate-create:
+    desc: Create migration, specify name with -- name
+    cmds:
+      - "$BIN/migrate create -ext sql -dir ./migrations -seq {{.CLI_ARGS}}"
+
+  migrate-up:
+    desc: Run migrate up
+    cmds:
+      - "$BIN/migrate -database 'postgres://postgres:postgres@localhost:5432/praktikum?sslmode=disable' -path ./migrations up"
 
   mockery:
     desc: Run mockery - update mock files

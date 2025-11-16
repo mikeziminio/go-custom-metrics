@@ -66,6 +66,7 @@ type Agent struct {
 	baseURL        string
 	logger         *zap.Logger
 	useCompress    bool
+	useBatchUpdate bool
 }
 
 func New(
@@ -73,6 +74,7 @@ func New(
 	pollInterval float64,
 	reportInterval float64,
 	useCompress bool,
+	useBatchUpdate bool,
 	logger *zap.Logger,
 ) *Agent {
 	client := &http.Client{}
@@ -85,6 +87,7 @@ func New(
 		baseURL:        baseURL,
 		logger:         logger,
 		useCompress:    useCompress,
+		useBatchUpdate: useBatchUpdate,
 	}
 }
 
@@ -166,11 +169,6 @@ func (a *Agent) Send(ctx context.Context, m *model.Metric, useCompress bool) err
 	req.Header.Set("Accept", "application/json")
 	if useCompress {
 		req.Header.Set("Content-Encoding", "gzip")
-
-		// сейчас в агенте ответ от сервера никаки не используется
-		// поэтому кода по распаковке в агенте нет
-		// но чтобы проходили тесты нужно чтобы сервер также отправлял
-		// в сжатом формате
 		req.Header.Set("Accept-Encoding", "gzip")
 	}
 	res, err := a.client.Do(req)
@@ -191,9 +189,82 @@ func (a *Agent) Send(ctx context.Context, m *model.Metric, useCompress bool) err
 	return nil
 }
 
-// SendAll - отправляет все метрики на сервер
+func (a *Agent) SendByBatch(ctx context.Context, metrics []model.Metric, useCompress bool) error {
+	a.logger.Info("send metric start", zap.String("metric", fmt.Sprintf("%v", len(metrics))))
+
+	u, err := url.JoinPath(a.baseURL, "/updates")
+	if err != nil {
+		return fmt.Errorf("failed to join url path for sending %d metrics, %v", len(metrics), a.baseURL)
+	}
+
+	body, err := json.Marshal(metrics)
+	if err != nil {
+		return fmt.Errorf("failed to marshal %d metrics: %w", len(metrics), err)
+	}
+
+	var bodyReader io.Reader
+	bodyReader = bytes.NewReader(body)
+	if useCompress {
+		bodyReader = compress.CompressWithGZIP(bodyReader)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, bodyReader)
+	if err != nil {
+		return fmt.Errorf("failed to init request: %w", err)
+	}
+	req.Header.Set("Accept", "application/json")
+	if useCompress {
+		req.Header.Set("Content-Encoding", "gzip")
+		req.Header.Set("Accept-Encoding", "gzip")
+	}
+	res, err := a.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to do request: %w", err)
+	}
+	defer res.Body.Close() //nolint:errcheck // it's ok
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status code for request: %d", res.StatusCode)
+	}
+	a.logger.Info("sent metric successfully",
+		zap.Int("count", len(metrics)),
+	)
+
+	return nil
+}
+
+func (a *Agent) SendAll(ctx context.Context, useCompress bool, useBatchUpdate bool) {
+	if useBatchUpdate {
+		a.SendAllByBatch(ctx, useCompress)
+	} else {
+		a.SendAllSequentially(ctx, useCompress)
+	}
+}
+
+func (a *Agent) SendAllByBatch(ctx context.Context, useCompress bool) {
+	metrics := make([]model.Metric, 0, len(a.gauges)+len(a.counters))
+	for name, val := range a.gauges {
+		metrics = append(metrics, model.Metric{
+			ID:    name,
+			MType: model.Gauge,
+			Value: &val,
+		})
+	}
+	for name, delta := range a.counters {
+		metrics = append(metrics, model.Metric{
+			ID:    name,
+			MType: model.Counter,
+			Delta: &delta,
+		})
+	}
+
+	err := a.SendByBatch(ctx, metrics, useCompress)
+	if err != nil {
+		a.logger.Error("failed to send metrics by batch", zap.Error(err))
+	}
+}
+
+// SendAllSequentially - отправляет все метрики на сервер
 // В случае возникновения ошибок при отправке - просто выводит их в лог
-func (a *Agent) SendAll(ctx context.Context, useCompress bool) {
+func (a *Agent) SendAllSequentially(ctx context.Context, useCompress bool) {
 	send := func(name string, t model.MetricType, delta *int64, value *float64) {
 		m := model.Metric{
 			ID:    name,
@@ -216,10 +287,10 @@ func (a *Agent) SendAll(ctx context.Context, useCompress bool) {
 			send(name, model.Gauge, nil, &val)
 		}()
 	}
-	for name, val := range a.counters {
+	for name, delta := range a.counters {
 		go func() {
 			defer wg.Done()
-			send(name, model.Counter, &val, nil)
+			send(name, model.Counter, &delta, nil)
 		}()
 	}
 	wg.Wait()
@@ -253,7 +324,7 @@ func (a *Agent) Run(ctx context.Context) {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				a.SendAll(ctx, a.useCompress)
+				a.SendAll(ctx, a.useCompress, a.useBatchUpdate)
 			}
 		}
 	}()

@@ -5,6 +5,7 @@ services:
     volumes:
       - ./cmd:/app/cmd
       - ./internal:/app/internal
+      - ./migrations:/app/migrations
       - ./test.sh:/app/test.sh
     command:
       - sh
@@ -14,7 +15,6 @@ services:
         && go build -o ./bin/server ./cmd/server
         && go build -o ./bin/agent ./cmd/agent
         && . ./test.sh
-
 
   postgres:
     image: postgres:18.0-alpine

@@ -12,16 +12,22 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/mikeziminio/go-custom-metrics/internal/compress"
-	"github.com/mikeziminio/go-custom-metrics/internal/dbstorage"
 	"github.com/mikeziminio/go-custom-metrics/internal/log"
 	"github.com/mikeziminio/go-custom-metrics/internal/model"
 )
 
 type Storage interface {
-	Update(m model.Metric) (*model.Metric, error)
-	List() map[string]model.Metric
-	Get(metricType model.MetricType, metricName string) (*model.Metric, error)
-	Sync() error
+	Update(ctx context.Context, m model.Metric) (*model.Metric, error)
+	Updates(ctx context.Context, metrics []model.Metric) error
+	List(ctx context.Context) (map[string]model.Metric, error)
+	Get(ctx context.Context, metricType model.MetricType, metricName string) (*model.Metric, error)
+	Sync(ctx context.Context) error
+	Restore(ctx context.Context) error
+}
+
+// Из ТЗ - ping актуален работать только для db storage
+type Pinger interface {
+	Ping(ctx context.Context) error
 }
 
 // todo: next sprints
@@ -35,7 +41,6 @@ type APIServer struct {
 	address       string
 	storeInterval time.Duration
 	storage       Storage
-	dbStorage     *dbstorage.DBStorage
 	router        *chi.Mux
 	httpServer    *http.Server
 	logger        *zap.Logger
@@ -45,7 +50,6 @@ func New(
 	address string,
 	storeInterval float64,
 	storage Storage,
-	dbStorage *dbstorage.DBStorage,
 	logger *zap.Logger,
 ) *APIServer {
 	r := chi.NewRouter()
@@ -61,7 +65,6 @@ func New(
 		address:       address,
 		storeInterval: time.Duration(float64(time.Second) * storeInterval),
 		storage:       storage,
-		dbStorage:     dbStorage,
 		router:        r,
 		httpServer:    httpServer,
 		logger:        logger,
@@ -86,6 +89,7 @@ func (a *APIServer) RegisterRoutes() {
 	r.Get("/value/{metricType}/{metricName}", a.GetByParams)
 	r.Post("/update", a.Update)
 	r.Post("/update/{metricType}/{metricName}/{value}", a.UpdateByParams)
+	r.Post("/updates", a.Updates)
 }
 
 func (a *APIServer) Run(ctx context.Context) {
@@ -110,7 +114,7 @@ func (a *APIServer) Run(ctx context.Context) {
 			for {
 				select {
 				case <-t.C:
-					err := a.storage.Sync()
+					err := a.storage.Sync(ctx)
 					if err != nil {
 						// судя по тому как сделаны тесты yandex - в случае ошибки синхронизации
 						// сервер не должен убиваться

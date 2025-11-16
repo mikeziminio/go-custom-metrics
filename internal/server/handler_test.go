@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"go.uber.org/zap"
 
 	"github.com/mikeziminio/go-custom-metrics/internal/model"
@@ -65,11 +66,11 @@ func TestUpdate(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			storage := NewMockStorage(t)
-			storage.EXPECT().Update(*tc.expectedMetric).
+			storage.EXPECT().Update(mock.Anything, *tc.expectedMetric).
 				Return(tc.expectedMetric, nil).
 				Once()
 
-			server := New("", 0, storage, nil, zap.L())
+			server := New("", 0, storage, zap.L())
 			server.RegisterRoutes()
 
 			path := "/update"
@@ -109,7 +110,7 @@ func TestUpdateFailed(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			storage := NewMockStorage(t)
-			server := New("", 0, storage, nil, zap.L())
+			server := New("", 0, storage, zap.L())
 			server.RegisterRoutes()
 
 			path := "/update"
@@ -152,11 +153,11 @@ func TestUpdateByParams(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			storage := NewMockStorage(t)
-			storage.EXPECT().Update(*tc.expectedMetric).
+			storage.EXPECT().Update(mock.Anything, *tc.expectedMetric).
 				Return(tc.expectedMetric, nil).
 				Once()
 
-			server := New("", 0, storage, nil, zap.L())
+			server := New("", 0, storage, zap.L())
 			server.RegisterRoutes()
 
 			req := httptest.NewRequest(http.MethodPost, tc.path, http.NoBody)
@@ -189,7 +190,7 @@ func TestUpdateByParamsFailed(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			storage := NewMockStorage(t)
-			server := New("", 0, storage, nil, zap.L())
+			server := New("", 0, storage, zap.L())
 			server.RegisterRoutes()
 
 			req := httptest.NewRequest(http.MethodPost, tc.path, http.NoBody)
@@ -247,11 +248,11 @@ func TestGet(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			storage := NewMockStorage(t)
-			storage.EXPECT().Get(tc.expectMetricType, tc.expectMetricName).
+			storage.EXPECT().Get(mock.Anything, tc.expectMetricType, tc.expectMetricName).
 				Return(tc.mockStorageReturnMetric, nil).
 				Once()
 
-			server := New("", 0, storage, nil, zap.L())
+			server := New("", 0, storage, zap.L())
 			server.RegisterRoutes()
 
 			path := "/value"
@@ -282,7 +283,7 @@ func TestGetFailed(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			storage := NewMockStorage(t)
-			server := New("", 0, storage, nil, zap.L())
+			server := New("", 0, storage, zap.L())
 			server.RegisterRoutes()
 
 			path := "/value"
@@ -335,11 +336,11 @@ func TestGetByParams(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			storage := NewMockStorage(t)
-			storage.EXPECT().Get(tc.expectMetricType, tc.expectMetricName).
+			storage.EXPECT().Get(mock.Anything, tc.expectMetricType, tc.expectMetricName).
 				Return(tc.mockStorageReturnMetric, nil).
 				Once()
 
-			server := New("", 0, storage, nil, zap.L())
+			server := New("", 0, storage, zap.L())
 			server.RegisterRoutes()
 
 			req := httptest.NewRequest(http.MethodGet, tc.path, http.NoBody)
@@ -369,7 +370,7 @@ func TestGetByParamsFailed(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			storage := NewMockStorage(t)
-			server := New("", 0, storage, nil, zap.L())
+			server := New("", 0, storage, zap.L())
 			server.RegisterRoutes()
 
 			req := httptest.NewRequest(http.MethodPost, tc.path, http.NoBody)
@@ -383,7 +384,7 @@ func TestGetByParamsFailed(t *testing.T) {
 
 func TestList(t *testing.T) {
 	storage := NewMockStorage(t)
-	storage.EXPECT().List().
+	storage.EXPECT().List(mock.Anything).
 		Return(map[string]model.Metric{
 			"some": {
 				ID:    "some",
@@ -395,10 +396,10 @@ func TestList(t *testing.T) {
 				MType: model.Counter,
 				Delta: helper.NewInt64(t, 64),
 			},
-		}).
+		}, nil).
 		Once()
 
-	server := New("", 0, storage, nil, zap.L())
+	server := New("", 0, storage, zap.L())
 	server.RegisterRoutes()
 
 	path := "/"

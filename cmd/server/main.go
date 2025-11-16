@@ -4,12 +4,13 @@ import (
 	"context"
 	stdlog "log"
 
+	"go.uber.org/zap"
+
 	"github.com/mikeziminio/go-custom-metrics/internal/dbstorage"
 	"github.com/mikeziminio/go-custom-metrics/internal/log"
 	"github.com/mikeziminio/go-custom-metrics/internal/memstorage"
 	"github.com/mikeziminio/go-custom-metrics/internal/server"
 	"github.com/mikeziminio/go-custom-metrics/internal/server/config"
-	"go.uber.org/zap"
 )
 
 func main() {
@@ -29,18 +30,34 @@ func main() {
 	if c.StoreInterval == 0 {
 		syncWithUpdate = true
 	}
-	ms, err := memstorage.New(syncWithUpdate, c.Restore, c.FileStoragePath, logger)
-	if err != nil {
-		logger.Fatal("failed to init memstorage", zap.Error(err))
+
+	var storage server.Storage
+	if c.DatabaseDSN == "" {
+		ms, err := memstorage.New(syncWithUpdate, c.FileStoragePath, logger)
+		if err != nil {
+			logger.Fatal("failed to init memstorage", zap.Error(err))
+		}
+		storage = ms
+	} else {
+		ds, err := dbstorage.New(c.DatabaseDSN, syncWithUpdate, c.FileStoragePath, logger)
+		if err != nil {
+			logger.Fatal("failed to init dbstorage", zap.Error(err))
+		}
+		err = ds.MigrateUp()
+		if err != nil {
+			logger.Fatal("failed to migrate up", zap.Error(err))
+		}
+		storage = ds
 	}
 
-	ds := dbstorage.New(c.DatabaseDSN)
+	if c.Restore {
+		storage.Restore(ctx)
+	}
 
 	s := server.New(
 		c.Address,
 		c.StoreInterval,
-		ms,
-		ds,
+		storage,
 		logger,
 	)
 	s.RegisterRoutes()

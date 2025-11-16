@@ -1,6 +1,7 @@
 package memstorage
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"testing"
@@ -59,16 +60,16 @@ func TestSync(t *testing.T) {
 			// Создаем временный файл для тестирования
 			tmpFile := helper.TempFilePath(t, "data.json")
 
-			ms, err := New(false, false, tmpFile, zap.L())
+			ms, err := New(false, tmpFile, zap.L())
 			require.NoError(t, err)
 			// Initialize with test metrics
 			for _, metric := range tc.metrics {
-				_, err := ms.Update(metric)
+				_, err := ms.Update(context.Background(), metric)
 				require.NoError(t, err)
 			}
 
 			// Тестируем метод Sync
-			err = ms.Sync()
+			err = ms.Sync(context.Background())
 			require.NoError(t, err)
 
 			// Проверяем, что файл был создан и содержит ожидаемые данные
@@ -146,11 +147,16 @@ func TestRestoreSucceed(t *testing.T) {
 			// Подготавливаем тестовый файл
 			tc.setupFile(t, tmpFile)
 
-			// Тестируем механизм restore
-			ms, err := New(false, true, tmpFile, zap.L())
+			// Тестируем механизм Restore
+			ms, err := New(false, tmpFile, zap.L())
 			require.NoError(t, err)
+			err = ms.Restore(context.Background())
+			require.NoError(t, err)
+
 			// Проверяем, что метрики были успешно восстановлены
-			assert.Equal(t, tc.expectedMetrics, ms.List())
+			result, err := ms.List(context.Background())
+			require.NoError(t, err)
+			assert.Equal(t, tc.expectedMetrics, result)
 		})
 	}
 }
@@ -186,10 +192,9 @@ func TestRestoreFailed(t *testing.T) {
 			tc.setupFile(t, tmpFile)
 
 			// Тестируем механизм restore
-			s := MemStorage{
-				logger: zap.L(),
-			}
-			err := s.restore()
+			ms, err := New(false, tmpFile, zap.L())
+			require.NoError(t, err)
+			err = ms.Restore(context.Background())
 			require.Error(t, err)
 		})
 	}

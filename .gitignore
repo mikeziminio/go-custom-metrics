@@ -4,6 +4,7 @@
 
 # Temporary files
 /cmd/temp/
-task.md
+/task.md
 
-data.json
+/data.json
+/AGENTS.md
