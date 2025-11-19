@@ -13,13 +13,13 @@ const (
 	StorageFileMode = 0600
 )
 
-type Syncer struct {
+type FileSyncer struct {
 	fileStoragePath string
 	logger          *zap.Logger
 }
 
-func New(fileStoragePath string, logger *zap.Logger) *Syncer {
-	return &Syncer{
+func New(fileStoragePath string, logger *zap.Logger) *FileSyncer {
+	return &FileSyncer{
 		fileStoragePath: fileStoragePath,
 		logger: logger.With(
 			zap.String("fileStoragePath", fileStoragePath),
@@ -27,7 +27,7 @@ func New(fileStoragePath string, logger *zap.Logger) *Syncer {
 	}
 }
 
-func (s *Syncer) Restore() ([]model.Metric, error) {
+func (s *FileSyncer) Restore() ([]model.Metric, error) {
 	data, err := os.ReadFile(s.fileStoragePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to restore from file: %w", err)
@@ -43,7 +43,7 @@ func (s *Syncer) Restore() ([]model.Metric, error) {
 	return metricSlice, nil
 }
 
-func (s *Syncer) Sync(metricSlice []model.Metric) error {
+func (s *FileSyncer) Sync(metricSlice []model.Metric) error {
 	data, err := json.Marshal(metricSlice)
 	if err != nil {
 		return fmt.Errorf("failed to marshal metrics: %w", err)

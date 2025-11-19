@@ -24,11 +24,11 @@ func TestPgRetrier(t *testing.T) {
 
 	t.Run("success after retry with retriable error", func(t *testing.T) {
 		// Using a mock classifier that returns Retriable for specific errors
-		mockClassifier := NewMockClassifier(t)
+		mockClassifier := newMockClassifier(t)
 		mockClassifier.EXPECT().ClassifyError(errors.New("temporary error")).Return(Retriable)
 		mockClassifier.EXPECT().ClassifyError(nil).Return(NonRetriable)
 
-		retrier := &PgRetrier{
+		retrier := &pgRetrier{
 			retryTimeouts: []time.Duration{10 * time.Millisecond, 20 * time.Millisecond},
 			classifier:    mockClassifier,
 		}
@@ -61,11 +61,11 @@ func TestPgRetrier(t *testing.T) {
 
 	t.Run("retry with retriable error", func(t *testing.T) {
 		// Using a mock classifier that returns Retriable for specific errors
-		mockClassifier := NewMockClassifier(t)
+		mockClassifier := newMockClassifier(t)
 		mockClassifier.EXPECT().ClassifyError(errors.New("temporary error")).Return(Retriable)
 		mockClassifier.EXPECT().ClassifyError(nil).Return(NonRetriable)
 
-		retrier := &PgRetrier{
+		retrier := &pgRetrier{
 			retryTimeouts: []time.Duration{10 * time.Millisecond, 20 * time.Millisecond, 30 * time.Millisecond},
 			classifier:    mockClassifier,
 		}
@@ -86,10 +86,10 @@ func TestPgRetrier(t *testing.T) {
 
 	t.Run("non-retriable error stops retries", func(t *testing.T) {
 		// Using a mock classifier that returns NonRetriable for specific errors
-		mockClassifier := NewMockClassifier(t)
+		mockClassifier := newMockClassifier(t)
 		mockClassifier.EXPECT().ClassifyError(errors.New("permanent error")).Return(NonRetriable)
 
-		retrier := &PgRetrier{
+		retrier := &pgRetrier{
 			retryTimeouts: []time.Duration{10 * time.Millisecond, 20 * time.Millisecond},
 			classifier:    mockClassifier,
 		}

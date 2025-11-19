@@ -266,13 +266,7 @@ func (a *APIServer) List(res http.ResponseWriter, req *http.Request) {
 }
 
 func (a *APIServer) Ping(res http.ResponseWriter, req *http.Request) {
-	pinger, ok := a.storage.(Pinger)
-	if !ok {
-		status := http.StatusServiceUnavailable
-		http.Error(res, http.StatusText(status), status)
-		return
-	}
-	err := pinger.Ping(req.Context())
+	err := a.storage.Ping(req.Context())
 	if err != nil {
 		a.handleInternalServerError(res, err)
 		return

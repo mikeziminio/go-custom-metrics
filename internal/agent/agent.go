@@ -66,7 +66,6 @@ type Agent struct {
 	baseURL        string
 	logger         *zap.Logger
 	useCompress    bool
-	useBatchUpdate bool
 }
 
 func New(
@@ -74,7 +73,6 @@ func New(
 	pollInterval float64,
 	reportInterval float64,
 	useCompress bool,
-	useBatchUpdate bool,
 	logger *zap.Logger,
 ) *Agent {
 	client := &http.Client{}
@@ -87,7 +85,6 @@ func New(
 		baseURL:        baseURL,
 		logger:         logger,
 		useCompress:    useCompress,
-		useBatchUpdate: useBatchUpdate,
 	}
 }
 
@@ -231,15 +228,7 @@ func (a *Agent) SendByBatch(ctx context.Context, metrics []model.Metric, useComp
 	return nil
 }
 
-func (a *Agent) SendAll(ctx context.Context, useCompress bool, useBatchUpdate bool) {
-	if useBatchUpdate {
-		a.SendAllByBatch(ctx, useCompress)
-	} else {
-		a.SendAllSequentially(ctx, useCompress)
-	}
-}
-
-func (a *Agent) SendAllByBatch(ctx context.Context, useCompress bool) {
+func (a *Agent) SendAll(ctx context.Context, useCompress bool) {
 	metrics := make([]model.Metric, 0, len(a.gauges)+len(a.counters))
 	for name, val := range a.gauges {
 		metrics = append(metrics, model.Metric{
@@ -324,7 +313,7 @@ func (a *Agent) Run(ctx context.Context) {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				a.SendAll(ctx, a.useCompress, a.useBatchUpdate)
+				a.SendAll(ctx, a.useCompress)
 			}
 		}
 	}()

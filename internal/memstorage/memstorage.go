@@ -17,7 +17,7 @@ type MemStorage struct {
 	metrics        map[string]model.Metric
 	mu             sync.RWMutex
 	syncWithUpdate bool
-	syncer         *syncer.Syncer
+	syncer         *syncer.FileSyncer
 	logger         *zap.Logger
 }
 
@@ -96,4 +96,8 @@ func (s *MemStorage) Get(_ context.Context, metricType model.MetricType, metricN
 		return nil, model.ErrMetricNotFound
 	}
 	return &m, nil
+}
+
+func (s *MemStorage) Ping(ctx context.Context) error {
+	return nil
 }

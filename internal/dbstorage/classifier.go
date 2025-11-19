@@ -14,17 +14,17 @@ var (
 	NonRetriable ErrorClass = "non_retriable"
 )
 
-type Classifier interface {
+type classifier interface {
 	ClassifyError(err error) ErrorClass
 }
 
-type PgClassifier struct{}
+type pgClassifier struct{}
 
-func NewPgClassifier() *PgClassifier {
-	return &PgClassifier{}
+func NewPgClassifier() *pgClassifier {
+	return &pgClassifier{}
 }
 
-func (c *PgClassifier) ClassifyError(err error) ErrorClass {
+func (c *pgClassifier) ClassifyError(err error) ErrorClass {
 	if err == nil {
 		return NonRetriable
 	}

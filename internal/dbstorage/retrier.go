@@ -4,23 +4,23 @@ import (
 	"time"
 )
 
-type Retrier interface {
+type retrier interface {
 	Retry(f func() error) error
 }
 
-type PgRetrier struct {
+type pgRetrier struct {
 	retryTimeouts []time.Duration
-	classifier    Classifier
+	classifier    classifier
 }
 
-func NewPgRetrier(retryTimeouts []time.Duration) *PgRetrier {
-	return &PgRetrier{
+func NewPgRetrier(retryTimeouts []time.Duration) *pgRetrier {
+	return &pgRetrier{
 		retryTimeouts: retryTimeouts,
 		classifier:    NewPgClassifier(),
 	}
 }
 
-func (r *PgRetrier) Retry(f func() error) error {
+func (r *pgRetrier) Retry(f func() error) error {
 	var timeoutIndex int
 	for {
 		e := f()

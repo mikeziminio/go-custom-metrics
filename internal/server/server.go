@@ -21,13 +21,12 @@ type Storage interface {
 	Updates(ctx context.Context, metrics []model.Metric) error
 	List(ctx context.Context) (map[string]model.Metric, error)
 	Get(ctx context.Context, metricType model.MetricType, metricName string) (*model.Metric, error)
-	Sync(ctx context.Context) error
-	Restore(ctx context.Context) error
+	Ping(ctx context.Context) error
 }
 
-// Из ТЗ - ping актуален работать только для db storage
-type Pinger interface {
-	Ping(ctx context.Context) error
+type Syncer interface {
+	Sync(ctx context.Context) error
+	Restore(ctx context.Context) error
 }
 
 // todo: next sprints
@@ -105,16 +104,19 @@ func (a *APIServer) Run(ctx context.Context) {
 	}()
 
 	if a.storeInterval != 0 {
+		syncer, ok := a.storage.(Syncer)
+		if !ok {
+			a.logger.Fatal("failed to sync, can't assert storage type as syncer")
+		}
 		go func() {
 			t := time.NewTicker(a.storeInterval)
-
 			a.logger.Info("File sync started",
 				zap.Duration("storeInterval", a.storeInterval),
 			)
 			for {
 				select {
 				case <-t.C:
-					err := a.storage.Sync(ctx)
+					err := syncer.Sync(ctx)
 					if err != nil {
 						// судя по тому как сделаны тесты yandex - в случае ошибки синхронизации
 						// сервер не должен убиваться

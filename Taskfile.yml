@@ -64,7 +64,7 @@ tasks:
   test:
     desc: Run local unit tests
     cmds:
-      - "go test -race ./..."
+      - "go test -v -race ./..."
 
   fmt:
     desc: Format and fix imports

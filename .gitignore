@@ -1,3 +1,6 @@
+# os
+.DS_Store
+
 # Binaries
 /bin/*
 !/bin/.gitkeep

@@ -43,15 +43,15 @@ func main() {
 		if err != nil {
 			logger.Fatal("failed to init dbstorage", zap.Error(err))
 		}
-		err = ds.MigrateUp()
-		if err != nil {
-			logger.Fatal("failed to migrate up", zap.Error(err))
-		}
 		storage = ds
 	}
 
 	if c.Restore {
-		storage.Restore(ctx)
+		syncer, ok := storage.(server.Syncer)
+		if !ok {
+			logger.Fatal("failed to restore, can't assert storage type as syncer")
+		}
+		syncer.Restore(ctx)
 	}
 
 	s := server.New(

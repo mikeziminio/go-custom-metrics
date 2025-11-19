@@ -17,15 +17,12 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/mikeziminio/go-custom-metrics/internal/model"
-	"github.com/mikeziminio/go-custom-metrics/internal/syncer"
 )
 
 type DBStorage struct {
 	db             *sql.DB
-	connString     string
 	syncWithUpdate bool
-	syncer         *syncer.Syncer
-	retrier        Retrier
+	retrier        retrier
 	logger         *zap.Logger
 }
 
@@ -45,23 +42,24 @@ func New(connString string, syncWithUpdate bool, fileStoragePath string, logger 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create connection pool: %w", err)
 	}
-	snc := syncer.New(fileStoragePath, logger)
 	s := DBStorage{
 		db:             db,
-		connString:     connString,
 		syncWithUpdate: syncWithUpdate,
-		syncer:         snc,
 		retrier:        retrier,
 		logger:         logger,
+	}
+	err = s.migrateUp(connString)
+	if err != nil {
+		logger.Fatal("failed to migrate up", zap.Error(err))
 	}
 	return &s, nil
 }
 
-func (s *DBStorage) MigrateUp() error {
+func (s *DBStorage) migrateUp(connString string) error {
 	// Для миграций - отдельное подключение
 	var db *sql.DB
 	err := s.retrier.Retry(func() (e error) {
-		db, e = sql.Open("pgx", s.connString)
+		db, e = sql.Open("pgx", connString)
 		return
 	})
 	if err != nil {

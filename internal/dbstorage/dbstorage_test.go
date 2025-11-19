@@ -34,7 +34,7 @@ func testPostgresContainer(t *testing.T, ctx context.Context) *postgres.Postgres
 	return pc
 }
 
-func testDBStorage(t *testing.T, ctx context.Context) (*DBStorage, *postgres.PostgresContainer) {
+func testDBStorage(t *testing.T, ctx context.Context) (*DBStorage, *postgres.PostgresContainer, string) {
 	// Start PostgreSQL container
 	pc := testPostgresContainer(t, ctx)
 
@@ -47,41 +47,34 @@ func testDBStorage(t *testing.T, ctx context.Context) (*DBStorage, *postgres.Pos
 	dbStorage, err := New(connStr, false, "", logger)
 	require.NoError(t, err)
 
-	return dbStorage, pc
+	return dbStorage, pc, connStr
 }
 
 func TestDBStorage_MigrateUp(t *testing.T) {
 	ctx := context.Background()
 
-	dbStorage, pc := testDBStorage(t, ctx)
+	// Run migrations
+	dbStorage, pc, connString := testDBStorage(t, ctx)
 	defer dbStorage.Close()
 	defer pc.Terminate(ctx)
 
-	// Run migrations
-	err := dbStorage.MigrateUp()
-	require.NoError(t, err)
-
 	// Verify that the table exists
 	var count int
-	err = dbStorage.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM metric").Scan(&count)
+	err := dbStorage.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM metric").Scan(&count)
 	require.NoError(t, err)
 	assert.Equal(t, 0, count) // Table should exist but be empty
 
 	// Try to run migration again (should not error)
-	err = dbStorage.MigrateUp()
+	err = dbStorage.migrateUp(connString)
 	require.NoError(t, err)
 }
 
 func TestDBStorage_Update(t *testing.T) {
 	ctx := context.Background()
 
-	dbStorage, pc := testDBStorage(t, ctx)
+	dbStorage, pc, _ := testDBStorage(t, ctx)
 	defer dbStorage.Close()
 	defer pc.Terminate(ctx)
-
-	// Run migrations
-	err := dbStorage.MigrateUp()
-	require.NoError(t, err)
 
 	// Test cases
 	testCases := []struct {
@@ -195,7 +188,7 @@ func TestDBStorage_Update(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Чистим таблицу для каждого теста
-			_, err = dbStorage.db.ExecContext(ctx, "DELETE FROM metric")
+			_, err := dbStorage.db.ExecContext(ctx, "DELETE FROM metric")
 			require.NoError(t, err)
 
 			// Добавляем исходные метрики из тест-кейса из initialMetrics
@@ -257,13 +250,9 @@ func TestDBStorage_Update(t *testing.T) {
 func TestDBStorage_Get(t *testing.T) {
 	ctx := context.Background()
 
-	dbStorage, pc := testDBStorage(t, ctx)
+	dbStorage, pc, _ := testDBStorage(t, ctx)
 	defer dbStorage.Close()
 	defer pc.Terminate(ctx)
-
-	// Run migrations
-	err := dbStorage.MigrateUp()
-	require.NoError(t, err)
 
 	// Test cases
 	testCases := []struct {
@@ -318,7 +307,7 @@ func TestDBStorage_Get(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Clear database for each test
-			_, err = dbStorage.db.ExecContext(ctx, "DELETE FROM metric")
+			_, err := dbStorage.db.ExecContext(ctx, "DELETE FROM metric")
 			require.NoError(t, err)
 
 			// Insert test metrics if any
@@ -366,13 +355,9 @@ func TestDBStorage_Get(t *testing.T) {
 func TestDBStorage_List(t *testing.T) {
 	ctx := context.Background()
 
-	dbStorage, pc := testDBStorage(t, ctx)
+	dbStorage, pc, _ := testDBStorage(t, ctx)
 	defer dbStorage.Close()
 	defer pc.Terminate(ctx)
-
-	// Run migrations
-	err := dbStorage.MigrateUp()
-	require.NoError(t, err)
 
 	// Test cases
 	testCases := []struct {
@@ -407,7 +392,7 @@ func TestDBStorage_List(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Clear database for each test
-			_, err = dbStorage.db.ExecContext(ctx, "DELETE FROM metric")
+			_, err := dbStorage.db.ExecContext(ctx, "DELETE FROM metric")
 			require.NoError(t, err)
 
 			// Insert test metrics if any
@@ -452,13 +437,9 @@ func TestDBStorage_List(t *testing.T) {
 func TestDBStorage_Updates(t *testing.T) {
 	ctx := context.Background()
 
-	dbStorage, pc := testDBStorage(t, ctx)
+	dbStorage, pc, _ := testDBStorage(t, ctx)
 	defer dbStorage.Close()
 	defer pc.Terminate(ctx)
-
-	// Run migrations
-	err := dbStorage.MigrateUp()
-	require.NoError(t, err)
 
 	// Test cases
 	testCases := []struct {
@@ -651,7 +632,7 @@ func TestDBStorage_Updates(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Clear database for each test
-			_, err = dbStorage.db.ExecContext(ctx, "DELETE FROM metric")
+			_, err := dbStorage.db.ExecContext(ctx, "DELETE FROM metric")
 			require.NoError(t, err)
 
 			// Insert initial metrics if any

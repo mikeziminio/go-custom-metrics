@@ -13,7 +13,6 @@ type Config struct {
 	PollInterval   float64 `envconfig:"POLL_INTERVAL"`
 	LogLevel       string
 	UseCompress    bool
-	UseBatchUpdate bool
 }
 
 var (
@@ -21,7 +20,6 @@ var (
 	DefaultPollInterval   = 2.0
 	DefaultReportInterval = 10.0
 	DefaultUseCompress    = true
-	DefaultUseBatchUpdate = true
 	DefaultLogLevel       = "info"
 )
 
@@ -29,7 +27,6 @@ func NewFromEnvsAndFlags() (*Config, error) {
 	c := Config{}
 
 	c.UseCompress = DefaultUseCompress
-	c.UseBatchUpdate = DefaultUseBatchUpdate
 	c.LogLevel = DefaultLogLevel
 
 	flag.StringVar(&c.Address, "a", DefaultAddress, "хост:порт http сервера")
