@@ -106,27 +106,28 @@ func (a *APIServer) Run(ctx context.Context) {
 	if a.storeInterval != 0 {
 		syncer, ok := a.storage.(Syncer)
 		if !ok {
-			a.logger.Fatal("failed to sync, can't assert storage type as syncer")
-		}
-		go func() {
-			t := time.NewTicker(a.storeInterval)
-			a.logger.Info("File sync started",
-				zap.Duration("storeInterval", a.storeInterval),
-			)
-			for {
-				select {
-				case <-t.C:
-					err := syncer.Sync(ctx)
-					if err != nil {
-						// судя по тому как сделаны тесты yandex - в случае ошибки синхронизации
-						// сервер не должен убиваться
-						a.logger.Warn("Failed to sync with file", zap.Error(err))
+			a.logger.Warn("failed to sync, can't assert storage type as syncer")
+		} else {
+			go func() {
+				t := time.NewTicker(a.storeInterval)
+				a.logger.Info("File sync started",
+					zap.Duration("storeInterval", a.storeInterval),
+				)
+				for {
+					select {
+					case <-t.C:
+						err := syncer.Sync(ctx)
+						if err != nil {
+							// судя по тому как сделаны тесты yandex - в случае ошибки синхронизации
+							// сервер не должен убиваться
+							a.logger.Warn("Failed to sync with file", zap.Error(err))
+						}
+					case <-ctx.Done():
+						return
 					}
-				case <-ctx.Done():
-					return
 				}
-			}
-		}()
+			}()
+		}
 	}
 
 	ctx, cancel = signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)

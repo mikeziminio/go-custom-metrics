@@ -49,9 +49,10 @@ func main() {
 	if c.Restore {
 		syncer, ok := storage.(server.Syncer)
 		if !ok {
-			logger.Fatal("failed to restore, can't assert storage type as syncer")
+			logger.Warn("failed to restore, can't assert storage type as syncer")
+		} else {
+			syncer.Restore(ctx)
 		}
-		syncer.Restore(ctx)
 	}
 
 	s := server.New(
