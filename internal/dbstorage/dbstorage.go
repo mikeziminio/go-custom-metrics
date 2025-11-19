@@ -184,7 +184,7 @@ func (s *DBStorage) Updates(ctx context.Context, metrics []model.Metric) error {
 	}
 
 	// мы должны подготовить уникальные по ID метрики,
-	// иначе upsert вернут ошибку
+	// иначе upsert вернет ошибку
 	// SQLSTATE 21000: ON CONFLICT DO UPDATE command cannot affect row a second time
 	uniqueMetrics := createUniqueMetrics(metrics)
 
