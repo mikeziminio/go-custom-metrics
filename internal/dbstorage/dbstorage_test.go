@@ -627,6 +627,101 @@ func TestDBStorage_Updates(t *testing.T) {
 				"gauge2": helper.NewFloat64(t, 25.0),
 			},
 		},
+		{
+			name: "handling duplicate metrics in batch update",
+			updatedMetrics: []model.Metric{
+				// Duplicate metric IDs - should be deduplicated with proper accumulation
+				// For counters: deltas should be accumulated
+				// For gauges: values should be replaced
+				{
+					ID:    "counter1",
+					MType: model.Counter,
+					Delta: helper.NewInt64(t, 3),
+					Value: nil,
+				},
+				{
+					ID:    "counter1",
+					MType: model.Counter,
+					Delta: helper.NewInt64(t, 7),
+					Value: nil,
+				},
+				{
+					ID:    "gauge1",
+					MType: model.Gauge,
+					Delta: nil,
+					Value: helper.NewFloat64(t, 10.0),
+				},
+				{
+					ID:    "gauge1",
+					MType: model.Gauge,
+					Delta: nil,
+					Value: helper.NewFloat64(t, 15.0),
+				},
+			},
+			expectedDeltas: map[string]*int64{
+				"counter1": helper.NewInt64(t, 10), // Should accumulate deltas (3 + 7)
+			},
+			expectedValues: map[string]*float64{
+				"gauge1": helper.NewFloat64(t, 15.0), // Should take last value (replacement)
+			},
+		},
+		{
+			name: "edge cases with mixed counter/gauge duplicates",
+			updatedMetrics: []model.Metric{
+				// Counter with multiple duplicates
+				{
+					ID:    "counter1",
+					MType: model.Counter,
+					Delta: helper.NewInt64(t, 5),
+					Value: nil,
+				},
+				{
+					ID:    "counter1",
+					MType: model.Counter,
+					Delta: helper.NewInt64(t, 3),
+					Value: nil,
+				},
+				{
+					ID:    "counter1",
+					MType: model.Counter,
+					Delta: helper.NewInt64(t, 2),
+					Value: nil,
+				},
+				// Gauge with multiple duplicates
+				{
+					ID:    "gauge1",
+					MType: model.Gauge,
+					Delta: nil,
+					Value: helper.NewFloat64(t, 10.0),
+				},
+				{
+					ID:    "gauge1",
+					MType: model.Gauge,
+					Delta: nil,
+					Value: helper.NewFloat64(t, 15.0),
+				},
+				{
+					ID:    "gauge1",
+					MType: model.Gauge,
+					Delta: nil,
+					Value: helper.NewFloat64(t, 20.0),
+				},
+				// Another counter
+				{
+					ID:    "counter2",
+					MType: model.Counter,
+					Delta: helper.NewInt64(t, 100),
+					Value: nil,
+				},
+			},
+			expectedDeltas: map[string]*int64{
+				"counter1": helper.NewInt64(t, 10), // 5 + 3 + 2
+				"counter2": helper.NewInt64(t, 100),
+			},
+			expectedValues: map[string]*float64{
+				"gauge1": helper.NewFloat64(t, 20.0), // Last value wins
+			},
+		},
 	}
 
 	for _, tc := range testCases {

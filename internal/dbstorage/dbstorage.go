@@ -129,34 +129,86 @@ func (s *DBStorage) Update(ctx context.Context, m model.Metric) (*model.Metric, 
 	return um, nil
 }
 
+// createUniqueMetrics подготавливает слайс метрик с уникальными ID для Updates
+func createUniqueMetrics(metrics []model.Metric) []model.Metric {
+	// Для корректной обработки дубликатов:
+	// - для counter: суммируем delta
+	// - для gauge: заменяем value
+	seenCounters := make(map[string]int64)
+	seenGauges := make(map[string]float64)
+
+	for _, m := range metrics {
+		switch m.MType {
+		case model.Counter:
+			if m.Delta != nil {
+				if existingDelta, exists := seenCounters[m.ID]; exists {
+					seenCounters[m.ID] = existingDelta + *m.Delta
+				} else {
+					seenCounters[m.ID] = *m.Delta
+				}
+			}
+		case model.Gauge:
+			if m.Value != nil {
+				seenGauges[m.ID] = *m.Value
+			}
+		}
+	}
+
+	uniqueMetrics := make([]model.Metric, 0, len(seenCounters)+len(seenGauges))
+
+	for id, delta := range seenCounters {
+		uniqueMetrics = append(uniqueMetrics, model.Metric{
+			ID:    id,
+			MType: model.Counter,
+			Delta: &delta,
+			Value: nil,
+		})
+	}
+
+	for id, value := range seenGauges {
+		uniqueMetrics = append(uniqueMetrics, model.Metric{
+			ID:    id,
+			MType: model.Gauge,
+			Delta: nil,
+			Value: &value,
+		})
+	}
+
+	return uniqueMetrics
+}
+
 func (s *DBStorage) Updates(ctx context.Context, metrics []model.Metric) error {
-	var tx *sql.Tx
+
+	if len(metrics) == 0 {
+		return nil
+	}
+
+	// мы должны подготовить уникальные по ID метрики,
+	// иначе upsert вернут ошибку
+	// SQLSTATE 21000: ON CONFLICT DO UPDATE command cannot affect row a second time
+	uniqueMetrics := createUniqueMetrics(metrics)
+
+	query := `INSERT INTO metric (id, m_type, delta, value) VALUES`
+	var args []any
+	for i, m := range uniqueMetrics {
+		if i > 0 {
+			query += ", "
+		}
+		query += fmt.Sprintf("($%d, $%d, $%d, $%d)", i*4+1, i*4+2, i*4+3, i*4+4)
+		args = append(args, m.ID, m.MType, m.Delta, m.Value)
+	}
+	query += `
+		ON CONFLICT (id) DO UPDATE SET
+			delta = CASE WHEN EXCLUDED.m_type = 'counter' THEN metric.delta + EXCLUDED.delta ELSE metric.delta END,
+			value = CASE WHEN EXCLUDED.m_type = 'gauge' THEN EXCLUDED.value ELSE metric.value END
+	`
+
 	err := s.retrier.Retry(func() (e error) {
-		tx, e = s.db.BeginTx(ctx, nil)
+		_, e = s.db.ExecContext(ctx, query, args...)
 		return
 	})
 	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
-	}
-	defer tx.Rollback()
-
-	for _, m := range metrics {
-		var e error
-		switch m.MType {
-		case model.Counter:
-			_, e = s.updateCounter(ctx, tx, m)
-		case model.Gauge:
-			_, e = s.updateGauge(ctx, tx, m)
-		default:
-			return fmt.Errorf("unsupported metric type: %s", m.MType)
-		}
-		if e != nil {
-			return fmt.Errorf("failed to update transaction: %w", e)
-		}
-	}
-
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
+		return fmt.Errorf("failed to upsert metrics: %w", err)
 	}
 
 	return nil
@@ -164,102 +216,59 @@ func (s *DBStorage) Updates(ctx context.Context, metrics []model.Metric) error {
 
 // updateCounter handles updating counter metrics with proper accumulation
 func (s *DBStorage) updateCounter(ctx context.Context, tx *sql.Tx, m model.Metric) (*model.Metric, error) {
-	// Проверим есть ли уже такой счетчик
-	var existingDelta sql.NullInt64
 	err := s.retrier.Retry(func() (e error) {
-		e = tx.QueryRowContext(ctx,
-			`SELECT delta FROM metric WHERE id = $1 AND m_type = $2`,
-			m.ID, m.MType,
-		).Scan(&existingDelta)
-		return
-	})
-
-	if err != nil {
-		if !errors.Is(err, sql.ErrNoRows) {
-			return nil, fmt.Errorf("failed to query row: %w", err)
-		}
-		// Счетчика нет, добавим новый
-		err := s.retrier.Retry(func() (e error) {
-			_, e = tx.ExecContext(ctx,
-				`INSERT INTO metric (id, m_type, delta) VALUES ($1, $2, $3)`,
-				m.ID, m.MType, m.Delta,
-			)
-			return
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to insert new counter: %w", err)
-		}
-		return &model.Metric{
-			ID:    m.ID,
-			MType: m.MType,
-			Delta: m.Delta,
-		}, nil
-	}
-
-	// Счетчик есть, пересчитаем значение
-	var newDelta int64
-	if existingDelta.Valid {
-		newDelta = existingDelta.Int64 + *m.Delta
-	} else {
-		newDelta = *m.Delta
-	}
-	err = s.retrier.Retry(func() (e error) {
 		_, e = tx.ExecContext(ctx,
-			`UPDATE metric SET delta = $1 WHERE id = $2 AND m_type = $3`,
-			newDelta, m.ID, m.MType,
+			`INSERT INTO metric (id, m_type, delta) VALUES ($1, $2, $3)
+			ON CONFLICT (id) DO UPDATE SET
+			m_type = EXCLUDED.m_type,
+			delta = metric.delta + EXCLUDED.delta`,
+			m.ID, m.MType, m.Delta,
 		)
 		return
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to update counter: %w", err)
+		return nil, fmt.Errorf("failed to upsert counter: %w", err)
 	}
+
+	// Retrieve the updated value to return
+	var newDelta sql.NullInt64
+	err = s.retrier.Retry(func() (e error) {
+		e = tx.QueryRowContext(ctx,
+			`SELECT delta FROM metric WHERE id = $1 AND m_type = $2`,
+			m.ID, m.MType,
+		).Scan(&newDelta)
+		return
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve updated counter: %w", err)
+	}
+
+	if !newDelta.Valid {
+		return nil, fmt.Errorf("failed to update delta, it's null for %s", m.ID)
+	}
+	updatedDelta := newDelta.Int64
 
 	return &model.Metric{
 		ID:    m.ID,
 		MType: m.MType,
-		Delta: &newDelta,
+		Delta: &updatedDelta,
 	}, nil
 }
 
 // updateGauge handles updating gauge metrics by replacing the value
 func (s *DBStorage) updateGauge(ctx context.Context, tx *sql.Tx, m model.Metric) (*model.Metric, error) {
-	// Проверим, есть ли уже значение
-	var existingFloat sql.NullFloat64
 	err := s.retrier.Retry(func() (e error) {
-		e = tx.QueryRowContext(ctx,
-			`SELECT value FROM metric WHERE id = $1 AND m_type = $2`,
-			m.ID, m.MType,
-		).Scan(&existingFloat)
+		_, e = tx.ExecContext(ctx,
+			`INSERT INTO metric (id, m_type, value) VALUES ($1, $2, $3)
+			ON CONFLICT (id) DO UPDATE SET
+			m_type = EXCLUDED.m_type,
+			value = EXCLUDED.value`,
+			m.ID, m.MType, m.Value,
+		)
 		return
 	})
-
 	if err != nil {
-		if !errors.Is(err, sql.ErrNoRows) {
-			return nil, fmt.Errorf("failed to query row: %w", err)
-		}
-		// Значения нет, добавим новое
-		err := s.retrier.Retry(func() (e error) {
-			_, e = tx.ExecContext(ctx,
-				`INSERT INTO metric (id, m_type, value) VALUES ($1, $2, $3)`,
-				m.ID, m.MType, m.Value,
-			)
-			return
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to insert new gauge: %w", err)
-		}
-	} else {
-		// Значение есть, обновим
-		err := s.retrier.Retry(func() (e error) {
-			_, err = tx.ExecContext(ctx,
-				`UPDATE metric SET value = $1 WHERE id = $2 AND m_type = $3`,
-				m.Value, m.ID, m.MType,
-			)
-			return
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to update gauge: %w", err)
-		}
+		return nil, fmt.Errorf("failed to upsert gauge: %w", err)
 	}
 
 	return &model.Metric{
