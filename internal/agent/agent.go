@@ -251,40 +251,6 @@ func (a *Agent) SendAll(ctx context.Context, useCompress bool) {
 	}
 }
 
-// SendAllSequentially - отправляет все метрики на сервер
-// В случае возникновения ошибок при отправке - просто выводит их в лог
-func (a *Agent) SendAllSequentially(ctx context.Context, useCompress bool) {
-	send := func(name string, t model.MetricType, delta *int64, value *float64) {
-		m := model.Metric{
-			ID:    name,
-			MType: t,
-			Delta: delta,
-			Value: value,
-		}
-		err := a.Send(ctx, &m, useCompress)
-		if err != nil {
-			// если агенту не удалось отправить - он продолжает работать
-			a.logger.Error("failed to send metric", zap.Error(err))
-		}
-	}
-
-	var wg sync.WaitGroup
-	wg.Add(len(a.gauges) + len(a.counters))
-	for name, val := range a.gauges {
-		go func() {
-			defer wg.Done()
-			send(name, model.Gauge, nil, &val)
-		}()
-	}
-	for name, delta := range a.counters {
-		go func() {
-			defer wg.Done()
-			send(name, model.Counter, &delta, nil)
-		}()
-	}
-	wg.Wait()
-}
-
 func (a *Agent) Run(ctx context.Context) {
 	ctx, cancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
