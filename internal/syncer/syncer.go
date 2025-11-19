@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/mikeziminio/go-custom-metrics/internal/model"
 	"go.uber.org/zap"
+
+	"github.com/mikeziminio/go-custom-metrics/internal/model"
 )
 
 const (

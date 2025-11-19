@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	stdlog "log"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -39,7 +40,7 @@ func main() {
 		}
 		storage = ms
 	} else {
-		ds, err := dbstorage.New(c.DatabaseDSN, syncWithUpdate, c.FileStoragePath, logger)
+		ds, err := dbstorage.New(c.DatabaseDSN, logger)
 		if err != nil {
 			logger.Fatal("failed to init dbstorage", zap.Error(err))
 		}
@@ -57,7 +58,7 @@ func main() {
 
 	s := server.New(
 		c.Address,
-		c.StoreInterval,
+		time.Duration(float64(time.Second)*c.StoreInterval),
 		storage,
 		logger,
 	)

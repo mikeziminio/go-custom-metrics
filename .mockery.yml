@@ -16,11 +16,8 @@ packages:
       Storage:
         configs:
           - filename: storage_mock_test.go
-  github.com/mikeziminio/go-custom-metrics/internal/dbstorage:
+  github.com/mikeziminio/go-custom-metrics/internal/retrier:
     interfaces:
-      classifier:
+      RetryClassifier:
         configs:
-          - filename: classifier_mock_test.go
-      retrier:
-        configs:
-          - filename: retrier_mock_test.go
+          - filename: retry_classifier_mock_test.go

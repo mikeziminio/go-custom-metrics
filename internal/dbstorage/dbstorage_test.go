@@ -44,7 +44,7 @@ func testDBStorage(t *testing.T, ctx context.Context) (*DBStorage, *postgres.Pos
 
 	// Create DBStorage instance
 	logger, _ := zap.NewDevelopment()
-	dbStorage, err := New(connStr, false, "", logger)
+	dbStorage, err := New(connStr, logger)
 	require.NoError(t, err)
 
 	return dbStorage, pc, connStr

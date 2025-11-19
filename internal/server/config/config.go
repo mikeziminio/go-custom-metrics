@@ -31,8 +31,7 @@ func NewFromEnvsAndFlags() (*Config, error) {
 	c.LogLevel = DefaultLogLevel
 
 	flag.StringVar(&c.Address, "a", DefaultAddress, "хост:порт http сервера")
-	flag.Float64Var(&c.StoreInterval, "i", DefaultStoreInterval,
-		"интервал времени в секундах, по истечении которого текущие показания сервера сохраняются на диск")
+	flag.Float64Var(&c.StoreInterval, "i", DefaultStoreInterval, "интервал сохраниения в файл в секундах")
 	flag.StringVar(&c.FileStoragePath, "f", DefaultFileStoragePath,
 		"путь до файла, куда сохраняются текущие значения")
 	flag.BoolVar(&c.Restore, "r", DefaultRestore,

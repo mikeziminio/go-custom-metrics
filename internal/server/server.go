@@ -47,7 +47,7 @@ type APIServer struct {
 
 func New(
 	address string,
-	storeInterval float64,
+	storeInterval time.Duration,
 	storage Storage,
 	logger *zap.Logger,
 ) *APIServer {
@@ -62,7 +62,7 @@ func New(
 
 	a := &APIServer{
 		address:       address,
-		storeInterval: time.Duration(float64(time.Second) * storeInterval),
+		storeInterval: storeInterval,
 		storage:       storage,
 		router:        r,
 		httpServer:    httpServer,

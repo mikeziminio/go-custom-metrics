@@ -17,13 +17,17 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/mikeziminio/go-custom-metrics/internal/model"
+	"github.com/mikeziminio/go-custom-metrics/internal/retrier"
 )
 
 type DBStorage struct {
-	db             *sql.DB
-	syncWithUpdate bool
-	retrier        retrier
-	logger         *zap.Logger
+	db      *sql.DB
+	retrier Retrier
+	logger  *zap.Logger
+}
+
+type Retrier interface {
+	Retry(f func() error) error
 }
 
 var defaultRetryTimeouts = []time.Duration{
@@ -32,10 +36,10 @@ var defaultRetryTimeouts = []time.Duration{
 	5 * time.Second,
 }
 
-func New(connString string, syncWithUpdate bool, fileStoragePath string, logger *zap.Logger) (*DBStorage, error) {
+func New(connString string, logger *zap.Logger) (*DBStorage, error) {
 	var db *sql.DB
-	retrier := NewPgRetrier(defaultRetryTimeouts)
-	err := retrier.Retry(func() (e error) {
+	r := retrier.NewRetrier(defaultRetryTimeouts, newRetryClassifier())
+	err := r.Retry(func() (e error) {
 		db, e = sql.Open("pgx", connString)
 		return
 	})
@@ -43,10 +47,9 @@ func New(connString string, syncWithUpdate bool, fileStoragePath string, logger 
 		return nil, fmt.Errorf("failed to create connection pool: %w", err)
 	}
 	s := DBStorage{
-		db:             db,
-		syncWithUpdate: syncWithUpdate,
-		retrier:        retrier,
-		logger:         logger,
+		db:      db,
+		retrier: r,
+		logger:  logger,
 	}
 	err = s.migrateUp(connString)
 	if err != nil {
@@ -302,7 +305,7 @@ func (s *DBStorage) Get(ctx context.Context, metricType model.MetricType, metric
 	})
 
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, model.ErrMetricNotFound
 		}
 		return nil, fmt.Errorf("failed to get metric: %w", err)
