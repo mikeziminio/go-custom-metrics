@@ -630,9 +630,9 @@ func TestDBStorage_Updates(t *testing.T) {
 		{
 			name: "handling duplicate metrics in batch update",
 			updatedMetrics: []model.Metric{
-				// Duplicate metric IDs - should be deduplicated with proper accumulation
-				// For counters: deltas should be accumulated
-				// For gauges: values should be replaced
+				// Дублирующиеся ID метрик - должны быть удалены с правильной аккумуляцией
+				// Для типа counter: дельты должны быть накоплены
+				// Для типа gauge: значения должны быть заменены
 				{
 					ID:    "counter1",
 					MType: model.Counter,
@@ -659,16 +659,15 @@ func TestDBStorage_Updates(t *testing.T) {
 				},
 			},
 			expectedDeltas: map[string]*int64{
-				"counter1": helper.NewInt64(t, 10), // Should accumulate deltas (3 + 7)
+				"counter1": helper.NewInt64(t, 10), // Должны накапливаться дельты (3 + 7)
 			},
 			expectedValues: map[string]*float64{
-				"gauge1": helper.NewFloat64(t, 15.0), // Should take last value (replacement)
+				"gauge1": helper.NewFloat64(t, 15.0), // Должно браться последнее значение
 			},
 		},
 		{
 			name: "edge cases with mixed counter/gauge duplicates",
 			updatedMetrics: []model.Metric{
-				// Counter with multiple duplicates
 				{
 					ID:    "counter1",
 					MType: model.Counter,
@@ -719,18 +718,16 @@ func TestDBStorage_Updates(t *testing.T) {
 				"counter2": helper.NewInt64(t, 100),
 			},
 			expectedValues: map[string]*float64{
-				"gauge1": helper.NewFloat64(t, 20.0), // Last value wins
+				"gauge1": helper.NewFloat64(t, 20.0), // Последнее значение
 			},
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Clear database for each test
 			_, err := dbStorage.db.ExecContext(ctx, "DELETE FROM metric")
 			require.NoError(t, err)
 
-			// Insert initial metrics if any
 			for _, metric := range tc.initialMetrics {
 				_, err = dbStorage.db.ExecContext(ctx, `
 					INSERT INTO metric (id, m_type, delta, value)
@@ -739,7 +736,6 @@ func TestDBStorage_Updates(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			// Call Updates method
 			err = dbStorage.Updates(ctx, tc.updatedMetrics)
 			if tc.expectedError {
 				assert.Error(t, err)
@@ -747,7 +743,6 @@ func TestDBStorage_Updates(t *testing.T) {
 			}
 			require.NoError(t, err)
 
-			// Validate stored metrics
 			for metricID, expectedDelta := range tc.expectedDeltas {
 				var storedDelta sql.NullInt64
 				err = dbStorage.db.QueryRowContext(ctx, `

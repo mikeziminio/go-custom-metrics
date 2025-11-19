@@ -214,7 +214,6 @@ func (s *DBStorage) Updates(ctx context.Context, metrics []model.Metric) error {
 	return nil
 }
 
-// updateCounter handles updating counter metrics with proper accumulation
 func (s *DBStorage) updateCounter(ctx context.Context, tx *sql.Tx, m model.Metric) (*model.Metric, error) {
 	err := s.retrier.Retry(func() (e error) {
 		_, e = tx.ExecContext(ctx,
@@ -230,7 +229,6 @@ func (s *DBStorage) updateCounter(ctx context.Context, tx *sql.Tx, m model.Metri
 		return nil, fmt.Errorf("failed to upsert counter: %w", err)
 	}
 
-	// Retrieve the updated value to return
 	var newDelta sql.NullInt64
 	err = s.retrier.Retry(func() (e error) {
 		e = tx.QueryRowContext(ctx,
@@ -255,7 +253,6 @@ func (s *DBStorage) updateCounter(ctx context.Context, tx *sql.Tx, m model.Metri
 	}, nil
 }
 
-// updateGauge handles updating gauge metrics by replacing the value
 func (s *DBStorage) updateGauge(ctx context.Context, tx *sql.Tx, m model.Metric) (*model.Metric, error) {
 	err := s.retrier.Retry(func() (e error) {
 		_, e = tx.ExecContext(ctx,
@@ -278,9 +275,7 @@ func (s *DBStorage) updateGauge(ctx context.Context, tx *sql.Tx, m model.Metric)
 	}, nil
 }
 
-// Close закрывает соединение с базой данных
 func (s *DBStorage) Close() error {
-	// Close database connection
 	if s.db != nil {
 		s.db.Close()
 	}
@@ -289,7 +284,6 @@ func (s *DBStorage) Close() error {
 }
 
 func (s *DBStorage) Ping(ctx context.Context) error {
-	// Используем контекст с операцией пинга
 	err := s.db.PingContext(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to ping database: %w", err)
@@ -320,7 +314,6 @@ func (s *DBStorage) Get(ctx context.Context, metricType model.MetricType, metric
 		return nil, fmt.Errorf("failed to get metric: %w", err)
 	}
 
-	// Set the appropriate value field based on metric type
 	if m.MType == model.Counter {
 		if delta.Valid {
 			m.Delta = &delta.Int64
@@ -335,7 +328,6 @@ func (s *DBStorage) Get(ctx context.Context, metricType model.MetricType, metric
 }
 
 func (s *DBStorage) List(ctx context.Context) (map[string]model.Metric, error) {
-	// Retrieve all metrics from database
 	var rows *sql.Rows
 	err := s.retrier.Retry(func() (e error) {
 		rows, e = s.db.QueryContext(ctx, "SELECT id, m_type, delta, value FROM metric")
@@ -362,7 +354,6 @@ func (s *DBStorage) List(ctx context.Context) (map[string]model.Metric, error) {
 			return nil, fmt.Errorf("failed to scan metric row: %w", err)
 		}
 
-		// Set the appropriate value field based on metric type
 		if m.MType == model.Counter {
 			if delta.Valid {
 				m.Delta = &delta.Int64
