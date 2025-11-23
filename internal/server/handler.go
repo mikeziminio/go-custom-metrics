@@ -22,13 +22,7 @@ func (a *APIServer) Update(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	type reqScheme struct {
-		ID    string           `json:"id"`
-		MType model.MetricType `json:"type"`
-		Delta *int64           `json:"delta,omitempty"`
-		Value *float64         `json:"value,omitempty"`
-	}
-	var data reqScheme
+	var data updateReqSchema
 
 	err = json.Unmarshal(body, &data)
 	if err != nil {
@@ -37,7 +31,7 @@ func (a *APIServer) Update(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	m, err := a.storage.Update(model.Metric{
+	m, err := a.storage.Update(req.Context(), model.Metric{
 		ID:    data.ID,
 		MType: data.MType,
 		Delta: data.Delta,
@@ -51,7 +45,7 @@ func (a *APIServer) Update(res http.ResponseWriter, req *http.Request) {
 			return
 		}
 		a.handleInternalServerError(res,
-			fmt.Errorf("failed to update metric value %s / %s: %v", data.MType, data.ID, err),
+			fmt.Errorf("failed to update metric value %s / %s: %w", data.MType, data.ID, err),
 		)
 		return
 	}
@@ -68,6 +62,49 @@ func (a *APIServer) Update(res http.ResponseWriter, req *http.Request) {
 		a.handleInternalServerError(res, fmt.Errorf("failed to write response: %w", err))
 		return
 	}
+}
+
+func (a *APIServer) Updates(res http.ResponseWriter, req *http.Request) {
+	body, err := io.ReadAll(req.Body)
+	if err != nil {
+		a.handleInternalServerError(res, fmt.Errorf("failed to read request body: %w", err))
+		return
+	}
+
+	var data updatesReqSchema
+	err = json.Unmarshal(body, &data)
+	if err != nil {
+		http.Error(res, fmt.Sprintf("failed to validate request body: %v", err),
+			http.StatusBadRequest)
+		return
+	}
+
+	metrics := make([]model.Metric, 0, len(data))
+	for _, d := range data {
+		metrics = append(metrics, model.Metric{
+			ID:    d.ID,
+			MType: d.MType,
+			Delta: d.Delta,
+			Value: d.Value,
+		})
+	}
+
+	err = a.storage.Updates(req.Context(), metrics)
+
+	if err != nil {
+		if errors.Is(err, model.ErrIncorrectMetricType) {
+			http.Error(res, "failed to fetch metric type",
+				http.StatusBadRequest,
+			)
+			return
+		}
+		a.handleInternalServerError(res,
+			fmt.Errorf("failed to update metric values: %w", err),
+		)
+		return
+	}
+
+	res.WriteHeader(http.StatusOK)
 }
 
 func (a *APIServer) UpdateByParams(res http.ResponseWriter, req *http.Request) {
@@ -106,7 +143,7 @@ func (a *APIServer) UpdateByParams(res http.ResponseWriter, req *http.Request) {
 		value = &v
 	}
 
-	_, err = a.storage.Update(model.Metric{
+	_, err = a.storage.Update(req.Context(), model.Metric{
 		ID:    metricName,
 		MType: metricType,
 		Delta: delta,
@@ -127,11 +164,7 @@ func (a *APIServer) Get(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	type reqScheme struct {
-		ID    string           `json:"id"`
-		MType model.MetricType `json:"type"`
-	}
-	var data reqScheme
+	var data getReqSchema
 
 	err = json.Unmarshal(body, &data)
 	if err != nil {
@@ -141,7 +174,7 @@ func (a *APIServer) Get(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	m, err := a.storage.Get(data.MType, data.ID)
+	m, err := a.storage.Get(req.Context(), data.MType, data.ID)
 	if err != nil {
 		if errors.Is(err, model.ErrMetricNotFound) {
 			http.Error(res, fmt.Sprintf("metric not found %s / %s: %v", data.MType, data.ID, err),
@@ -179,7 +212,7 @@ func (a *APIServer) GetByParams(res http.ResponseWriter, req *http.Request) {
 	}
 	metricName := chi.URLParam(req, "metricName")
 
-	m, err := a.storage.Get(metricType, metricName)
+	m, err := a.storage.Get(req.Context(), metricType, metricName)
 	if err != nil {
 		if errors.Is(err, model.ErrMetricNotFound) {
 			http.Error(res, fmt.Sprintf("metric not found %s / %s: %v", metricType, metricName, err),
@@ -187,7 +220,7 @@ func (a *APIServer) GetByParams(res http.ResponseWriter, req *http.Request) {
 			)
 			return
 		}
-		a.handleInternalServerError(res, fmt.Errorf("failed to get metric %s / %s: %v", metricType, metricName, err))
+		a.handleInternalServerError(res, fmt.Errorf("failed to get metric %s / %s: %w", metricType, metricName, err))
 		return
 	}
 
@@ -206,9 +239,13 @@ func (a *APIServer) GetByParams(res http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (a *APIServer) List(res http.ResponseWriter, _ *http.Request) {
+func (a *APIServer) List(res http.ResponseWriter, req *http.Request) {
 	var b bytes.Buffer
-	metrics := a.storage.List()
+	metrics, err := a.storage.List(req.Context())
+	if err != nil {
+		a.handleInternalServerError(res, fmt.Errorf("failed to get metrics list: %w", err))
+		return
+	}
 	for id, m := range metrics {
 		b.WriteString(id)
 		b.WriteString(" ")
@@ -221,11 +258,20 @@ func (a *APIServer) List(res http.ResponseWriter, _ *http.Request) {
 	}
 
 	res.Header().Set("Content-Type", "text/html")
-	_, err := res.Write(b.Bytes())
+	_, err = res.Write(b.Bytes())
 	if err != nil {
 		a.handleInternalServerError(res, fmt.Errorf("failed to write response: %w", err))
 		return
 	}
+}
+
+func (a *APIServer) Ping(res http.ResponseWriter, req *http.Request) {
+	err := a.storage.Ping(req.Context())
+	if err != nil {
+		a.handleInternalServerError(res, err)
+		return
+	}
+	res.WriteHeader(http.StatusOK)
 }
 
 func (a *APIServer) handleInternalServerError(res http.ResponseWriter, err error) {

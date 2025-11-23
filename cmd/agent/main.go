@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	stdlog "log"
+	"time"
 
 	"github.com/mikeziminio/go-custom-metrics/internal/agent"
 	"github.com/mikeziminio/go-custom-metrics/internal/agent/config"
@@ -25,9 +26,10 @@ func main() {
 
 	a := agent.New(
 		fmt.Sprintf("http://%s", c.Address),
-		c.PollInterval,
-		c.ReportInterval,
+		time.Duration(float64(time.Second)*c.PollInterval),
+		time.Duration(float64(time.Second)*c.ReportInterval),
 		c.UseCompress,
+		time.Duration(float64(time.Second)*c.Timeout),
 		logger,
 	)
 

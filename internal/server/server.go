@@ -17,10 +17,16 @@ import (
 )
 
 type Storage interface {
-	Update(m model.Metric) (*model.Metric, error)
-	List() map[string]model.Metric
-	Get(metricType model.MetricType, metricName string) (*model.Metric, error)
-	Sync() error
+	Update(ctx context.Context, m model.Metric) (*model.Metric, error)
+	Updates(ctx context.Context, metrics []model.Metric) error
+	List(ctx context.Context) (map[string]model.Metric, error)
+	Get(ctx context.Context, metricType model.MetricType, metricName string) (*model.Metric, error)
+	Ping(ctx context.Context) error
+}
+
+type Syncer interface {
+	Sync(ctx context.Context) error
+	Restore(ctx context.Context) error
 }
 
 // todo: next sprints
@@ -41,7 +47,7 @@ type APIServer struct {
 
 func New(
 	address string,
-	storeInterval float64,
+	storeInterval time.Duration,
 	storage Storage,
 	logger *zap.Logger,
 ) *APIServer {
@@ -56,7 +62,7 @@ func New(
 
 	a := &APIServer{
 		address:       address,
-		storeInterval: time.Duration(float64(time.Second) * storeInterval),
+		storeInterval: storeInterval,
 		storage:       storage,
 		router:        r,
 		httpServer:    httpServer,
@@ -77,10 +83,12 @@ func (a *APIServer) RegisterRoutes() {
 	r.Use(compress.CompressMiddlewareHandler)
 
 	r.Get("/", a.List)
+	r.Get("/ping", a.Ping)
 	r.Post("/value", a.Get)
 	r.Get("/value/{metricType}/{metricName}", a.GetByParams)
 	r.Post("/update", a.Update)
 	r.Post("/update/{metricType}/{metricName}/{value}", a.UpdateByParams)
+	r.Post("/updates", a.Updates)
 }
 
 func (a *APIServer) Run(ctx context.Context) {
@@ -96,26 +104,30 @@ func (a *APIServer) Run(ctx context.Context) {
 	}()
 
 	if a.storeInterval != 0 {
-		go func() {
-			t := time.NewTicker(a.storeInterval)
-
-			a.logger.Info("File sync started",
-				zap.Duration("storeInterval", a.storeInterval),
-			)
-			for {
-				select {
-				case <-t.C:
-					err := a.storage.Sync()
-					if err != nil {
-						// судя по тому как сделаны тесты yandex - в случае ошибки синхронизации
-						// сервер не должен убиваться
-						a.logger.Warn("Failed to sync with file", zap.Error(err))
+		syncer, ok := a.storage.(Syncer)
+		if !ok {
+			a.logger.Warn("failed to sync, can't assert storage type as syncer")
+		} else {
+			go func() {
+				t := time.NewTicker(a.storeInterval)
+				a.logger.Info("File sync started",
+					zap.Duration("storeInterval", a.storeInterval),
+				)
+				for {
+					select {
+					case <-t.C:
+						err := syncer.Sync(ctx)
+						if err != nil {
+							// судя по тому как сделаны тесты yandex - в случае ошибки синхронизации
+							// сервер не должен убиваться
+							a.logger.Warn("Failed to sync with file", zap.Error(err))
+						}
+					case <-ctx.Done():
+						return
 					}
-				case <-ctx.Done():
-					return
 				}
-			}
-		}()
+			}()
+		}
 	}
 
 	ctx, cancel = signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)

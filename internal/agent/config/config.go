@@ -13,13 +13,16 @@ type Config struct {
 	PollInterval   float64 `envconfig:"POLL_INTERVAL"`
 	LogLevel       string
 	UseCompress    bool
+	Timeout        float64
 }
 
 var (
+	DefaultAddress        = "localhost:8080"
 	DefaultPollInterval   = 2.0
 	DefaultReportInterval = 10.0
 	DefaultUseCompress    = true
 	DefaultLogLevel       = "info"
+	DefaultTimeout        = 1.0
 )
 
 func NewFromEnvsAndFlags() (*Config, error) {
@@ -27,8 +30,9 @@ func NewFromEnvsAndFlags() (*Config, error) {
 
 	c.UseCompress = DefaultUseCompress
 	c.LogLevel = DefaultLogLevel
+	c.Timeout = DefaultTimeout
 
-	flag.StringVar(&c.Address, "a", "localhost:8080", "хост:порт http сервера")
+	flag.StringVar(&c.Address, "a", DefaultAddress, "хост:порт http сервера")
 	flag.Float64Var(
 		&c.ReportInterval,
 		"r",

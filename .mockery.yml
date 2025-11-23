@@ -4,7 +4,7 @@ force-file-write: true
 formatter: goimports
 include-auto-generated: false
 log-level: info
-structname: '{{.Mock}}{{.InterfaceName}}'
+structname: '{{.Mock}}{{.InterfaceName | firstUpper}}'
 pkgname: '{{.SrcPackageName}}'
 recursive: false
 require-template-schema-exists: true
@@ -16,4 +16,8 @@ packages:
       Storage:
         configs:
           - filename: storage_mock_test.go
-
+  github.com/mikeziminio/go-custom-metrics/internal/retrier:
+    interfaces:
+      RetryClassifier:
+        configs:
+          - filename: retry_classifier_mock_test.go

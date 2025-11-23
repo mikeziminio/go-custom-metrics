@@ -1,9 +1,13 @@
+# os
+.DS_Store
+
 # Binaries
 /bin/*
 !/bin/.gitkeep
 
 # Temporary files
 /cmd/temp/
-task.md
+/task.md
 
-data.json
+/data.json
+/AGENTS.md

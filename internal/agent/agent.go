@@ -22,6 +22,7 @@ import (
 
 	"github.com/mikeziminio/go-custom-metrics/internal/compress"
 	"github.com/mikeziminio/go-custom-metrics/internal/model"
+	"github.com/mikeziminio/go-custom-metrics/internal/retrier"
 )
 
 var (
@@ -57,25 +58,56 @@ var (
 )
 
 type Agent struct {
-	pollInterval   float64
-	reportInterval float64
+	pollInterval   time.Duration
+	reportInterval time.Duration
 	gauges         map[string]float64
 	counters       map[string]int64
 	mu             sync.RWMutex
 	client         *http.Client
 	baseURL        string
-	logger         *zap.Logger
 	useCompress    bool
+	retrier        Retrier
+	logger         *zap.Logger
+}
+
+type Retrier interface {
+	Retry(f func() error) error
+}
+
+var defaultRetryTimeouts = []time.Duration{
+	1 * time.Second,
+	3 * time.Second,
+	5 * time.Second,
+}
+
+// Ограничивает количество ретраев отправки метрик
+// в зависимости от интервала отправки
+func retryTimeouts(rts []time.Duration, reportInterval time.Duration) []time.Duration {
+	var currentInterval time.Duration
+	for i, timeout := range rts {
+		currentInterval += timeout
+		if currentInterval >= reportInterval {
+			return rts[:i]
+		}
+	}
+	return rts
 }
 
 func New(
 	baseURL string,
-	pollInterval float64,
-	reportInterval float64,
+	pollInterval time.Duration,
+	reportInterval time.Duration,
 	useCompress bool,
+	timeout time.Duration,
 	logger *zap.Logger,
 ) *Agent {
-	client := &http.Client{}
+	r := retrier.NewRetrier(
+		retryTimeouts(defaultRetryTimeouts, reportInterval),
+		retrier.NewDefaultRetryClassifier(),
+	)
+	client := &http.Client{
+		Timeout: timeout,
+	}
 	return &Agent{
 		pollInterval:   pollInterval,
 		reportInterval: reportInterval,
@@ -83,8 +115,9 @@ func New(
 		counters:       make(map[string]int64),
 		client:         client,
 		baseURL:        baseURL,
-		logger:         logger,
 		useCompress:    useCompress,
+		retrier:        r,
+		logger:         logger,
 	}
 }
 
@@ -141,17 +174,17 @@ func (a *Agent) Collect() {
 	a.counters[MetricPollCount]++
 }
 
-func (a *Agent) Send(ctx context.Context, m *model.Metric, useCompress bool) error {
-	a.logger.Info("send metric start", zap.String("metric", fmt.Sprintf("%v", m)))
+func (a *Agent) SendByBatch(ctx context.Context, metrics []model.Metric, useCompress bool) error {
+	a.logger.Info("send metric start", zap.String("metric", fmt.Sprintf("%v", len(metrics))))
 
-	u, err := url.JoinPath(a.baseURL, "/update")
+	u, err := url.JoinPath(a.baseURL, "/updates")
 	if err != nil {
-		return fmt.Errorf("failed to join url path for sending metric %s, %v", a.baseURL, m)
+		return fmt.Errorf("failed to join url path for sending %d metrics, %v", len(metrics), a.baseURL)
 	}
 
-	body, err := json.Marshal(m)
+	body, err := json.Marshal(metrics)
 	if err != nil {
-		return fmt.Errorf("failed to marshal: %w", err)
+		return fmt.Errorf("failed to marshal %d metrics: %w", len(metrics), err)
 	}
 
 	var bodyReader io.Reader
@@ -166,63 +199,52 @@ func (a *Agent) Send(ctx context.Context, m *model.Metric, useCompress bool) err
 	req.Header.Set("Accept", "application/json")
 	if useCompress {
 		req.Header.Set("Content-Encoding", "gzip")
-
-		// сейчас в агенте ответ от сервера никаки не используется
-		// поэтому кода по распаковке в агенте нет
-		// но чтобы проходили тесты нужно чтобы сервер также отправлял
-		// в сжатом формате
 		req.Header.Set("Accept-Encoding", "gzip")
 	}
-	res, err := a.client.Do(req)
+
+	err = a.retrier.Retry(func() (e error) {
+		res, e := a.client.Do(req)
+		if e != nil {
+			return e
+		}
+		defer res.Body.Close() //nolint:errcheck // it's ok
+		if res.StatusCode != http.StatusOK {
+			return fmt.Errorf("unexpected status code for request: %d", res.StatusCode)
+		}
+		return nil
+	})
+
 	if err != nil {
 		return fmt.Errorf("failed to do request: %w", err)
 	}
-	defer res.Body.Close() //nolint:errcheck // it's ok
-	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status code for request: %d", res.StatusCode)
-	}
 	a.logger.Info("sent metric successfully",
-		zap.String("type", string(m.MType)),
-		zap.String("id", m.ID),
-		zap.Float64p("value", m.Value),
-		zap.Int64p("counter", m.Delta),
+		zap.Int("count", len(metrics)),
 	)
 
 	return nil
 }
 
-// SendAll - отправляет все метрики на сервер
-// В случае возникновения ошибок при отправке - просто выводит их в лог
 func (a *Agent) SendAll(ctx context.Context, useCompress bool) {
-	send := func(name string, t model.MetricType, delta *int64, value *float64) {
-		m := model.Metric{
+	metrics := make([]model.Metric, 0, len(a.gauges)+len(a.counters))
+	for name, val := range a.gauges {
+		metrics = append(metrics, model.Metric{
 			ID:    name,
-			MType: t,
-			Delta: delta,
-			Value: value,
-		}
-		err := a.Send(ctx, &m, useCompress)
-		if err != nil {
-			// если агенту не удалось отправить - он продолжает работать
-			a.logger.Error("failed to send metric", zap.Error(err))
-		}
+			MType: model.Gauge,
+			Value: &val,
+		})
+	}
+	for name, delta := range a.counters {
+		metrics = append(metrics, model.Metric{
+			ID:    name,
+			MType: model.Counter,
+			Delta: &delta,
+		})
 	}
 
-	var wg sync.WaitGroup
-	wg.Add(len(a.gauges) + len(a.counters))
-	for name, val := range a.gauges {
-		go func() {
-			defer wg.Done()
-			send(name, model.Gauge, nil, &val)
-		}()
+	err := a.SendByBatch(ctx, metrics, useCompress)
+	if err != nil {
+		a.logger.Error("failed to send metrics by batch", zap.Error(err))
 	}
-	for name, val := range a.counters {
-		go func() {
-			defer wg.Done()
-			send(name, model.Counter, &val, nil)
-		}()
-	}
-	wg.Wait()
 }
 
 func (a *Agent) Run(ctx context.Context) {
@@ -234,7 +256,7 @@ func (a *Agent) Run(ctx context.Context) {
 
 	go func() {
 		defer wg.Done()
-		ticker := time.NewTicker(time.Duration(float64(time.Second) * a.pollInterval))
+		ticker := time.NewTicker(a.pollInterval)
 		for {
 			select {
 			case <-ctx.Done():
@@ -247,7 +269,7 @@ func (a *Agent) Run(ctx context.Context) {
 
 	go func() {
 		defer wg.Done()
-		ticker := time.NewTicker(time.Duration(float64(time.Second) * a.reportInterval))
+		ticker := time.NewTicker(a.reportInterval)
 		for {
 			select {
 			case <-ctx.Done():
