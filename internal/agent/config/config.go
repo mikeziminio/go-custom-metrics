@@ -12,6 +12,7 @@ type Config struct {
 	ReportInterval float64 `envconfig:"REPORT_INTERVAL"`
 	PollInterval   float64 `envconfig:"POLL_INTERVAL"`
 	HashKey        string  `envconfig:"KEY"`
+	RateLimit      int     `envconfig:"RATE_LIMIT"`
 	LogLevel       string
 	UseCompress    bool
 	Timeout        float64
@@ -22,6 +23,7 @@ var (
 	DefaultPollInterval   = 2.0
 	DefaultReportInterval = 10.0
 	DefaultUseCompress    = true
+	DefaultRateLimit      = 100
 	DefaultLogLevel       = "info"
 	DefaultTimeout        = 1.0
 	DefaultHashKey        = ""
@@ -43,6 +45,7 @@ func NewFromEnvsAndFlags() (*Config, error) {
 	)
 	flag.Float64Var(&c.PollInterval, "p", DefaultPollInterval, "частота опроса метрик")
 	flag.StringVar(&c.HashKey, "k", DefaultHashKey, "ключ подписи")
+	flag.IntVar(&c.RateLimit, "l", DefaultRateLimit, "количество одновременных запросов к серверу")
 	flag.Parse()
 
 	// по ТЗ переменные среды перезаписывают флаги

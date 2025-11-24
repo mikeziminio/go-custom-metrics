@@ -14,11 +14,15 @@ import (
 	"net/url"
 	"os/signal"
 	"runtime"
+	"strconv"
 	"sync"
 	"syscall"
 	"time"
 
+	"github.com/shirou/gopsutil/v4/cpu"
+	"github.com/shirou/gopsutil/v4/mem"
 	"go.uber.org/zap"
+	"golang.org/x/sync/semaphore"
 
 	"github.com/mikeziminio/go-custom-metrics/internal/compress"
 	"github.com/mikeziminio/go-custom-metrics/internal/hasher"
@@ -27,35 +31,38 @@ import (
 )
 
 var (
-	MetricAlloc         = "Alloc"
-	MetricBuckHashSys   = "BuckHashSys"
-	MetricFrees         = "Frees"
-	MetricGCCPUFraction = "GCCPUFraction"
-	MetricGCSys         = "GCSys"
-	MetricHeapAlloc     = "HeapAlloc"
-	MetricHeapIdle      = "HeapIdle"
-	MetricHeapInuse     = "HeapInuse"
-	MetricHeapObjects   = "HeapObjects"
-	MetricHeapReleased  = "HeapReleased"
-	MetricHeapSys       = "HeapSys"
-	MetricLastGC        = "LastGC"
-	MetricLookups       = "Lookups"
-	MetricMCacheInuse   = "MCacheInuse"
-	MetricMCacheSys     = "MCacheSys"
-	MetricMSpanInuse    = "MSpanInuse"
-	MetricMSpanSys      = "MSpanSys"
-	MetricMallocs       = "Mallocs"
-	MetricNextGC        = "NextGC"
-	MetricNumForcedGC   = "NumForcedGC"
-	MetricNumGC         = "NumGC"
-	MetricOtherSys      = "OtherSys"
-	MetricPauseTotalNs  = "PauseTotalNs"
-	MetricStackInuse    = "StackInuse"
-	MetricStackSys      = "StackSys"
-	MetricSys           = "Sys"
-	MetricTotalAlloc    = "TotalAlloc"
-	MetricPollCount     = "PollCount"
-	MetricRandomValue   = "RandomValue"
+	MetricAlloc          = "Alloc"
+	MetricBuckHashSys    = "BuckHashSys"
+	MetricFrees          = "Frees"
+	MetricGCCPUFraction  = "GCCPUFraction"
+	MetricGCSys          = "GCSys"
+	MetricHeapAlloc      = "HeapAlloc"
+	MetricHeapIdle       = "HeapIdle"
+	MetricHeapInuse      = "HeapInuse"
+	MetricHeapObjects    = "HeapObjects"
+	MetricHeapReleased   = "HeapReleased"
+	MetricHeapSys        = "HeapSys"
+	MetricLastGC         = "LastGC"
+	MetricLookups        = "Lookups"
+	MetricMCacheInuse    = "MCacheInuse"
+	MetricMCacheSys      = "MCacheSys"
+	MetricMSpanInuse     = "MSpanInuse"
+	MetricMSpanSys       = "MSpanSys"
+	MetricMallocs        = "Mallocs"
+	MetricNextGC         = "NextGC"
+	MetricNumForcedGC    = "NumForcedGC"
+	MetricNumGC          = "NumGC"
+	MetricOtherSys       = "OtherSys"
+	MetricPauseTotalNs   = "PauseTotalNs"
+	MetricStackInuse     = "StackInuse"
+	MetricStackSys       = "StackSys"
+	MetricSys            = "Sys"
+	MetricTotalAlloc     = "TotalAlloc"
+	MetricPollCount      = "PollCount"
+	MetricRandomValue    = "RandomValue"
+	MetricTotalMemory    = "TotalMemory"
+	MetricFreeMemory     = "FreeMemory"
+	MetricCPUUtilization = "CPUutilization"
 )
 
 type Agent struct {
@@ -68,6 +75,7 @@ type Agent struct {
 	baseURL        string
 	useCompress    bool
 	hashKey        []byte
+	sem            *semaphore.Weighted
 	retrier        Retrier
 	logger         *zap.Logger
 }
@@ -101,6 +109,7 @@ func New(
 	reportInterval time.Duration,
 	useCompress bool,
 	hashKey []byte,
+	rateLimit int,
 	timeout time.Duration,
 	logger *zap.Logger,
 ) *Agent {
@@ -120,6 +129,7 @@ func New(
 		baseURL:        baseURL,
 		useCompress:    useCompress,
 		hashKey:        hashKey,
+		sem:            semaphore.NewWeighted(int64(rateLimit)),
 		retrier:        r,
 		logger:         logger,
 	}
@@ -142,6 +152,20 @@ func randFloat64() float64 {
 }
 
 func (a *Agent) Collect() {
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		a.collectBasic()
+	}()
+	go func() {
+		defer wg.Done()
+		a.collectExtra()
+	}()
+	wg.Wait()
+}
+
+func (a *Agent) collectBasic() {
 	var ms runtime.MemStats
 	runtime.ReadMemStats(&ms)
 
@@ -178,6 +202,25 @@ func (a *Agent) Collect() {
 	a.counters[MetricPollCount]++
 }
 
+func (a *Agent) collectExtra() {
+	vm, err := mem.VirtualMemory()
+	if err != nil {
+		a.logger.Fatal("failed to fetch mem metrics")
+	}
+	utils, err := cpu.Percent(time.Second, true)
+	if err != nil {
+		a.logger.Fatal("failed to fetch cpu metrics")
+	}
+
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.gauges[MetricTotalMemory] = float64(vm.Total)
+	a.gauges[MetricFreeMemory] = float64(vm.Free)
+	for i, u := range utils {
+		a.gauges[MetricCPUUtilization+strconv.Itoa(i)] = u
+	}
+}
+
 func (a *Agent) SendByBatch(ctx context.Context, metrics []model.Metric, useCompress bool) error {
 	a.logger.Info("send metric start", zap.String("metric", fmt.Sprintf("%v", len(metrics))))
 
@@ -211,7 +254,9 @@ func (a *Agent) SendByBatch(ctx context.Context, metrics []model.Metric, useComp
 	}
 
 	err = a.retrier.Retry(func() (e error) {
+		a.sem.Acquire(ctx, 1)
 		res, e := a.client.Do(req)
+		a.sem.Release(1)
 		if e != nil {
 			return e
 		}
