@@ -21,6 +21,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/mikeziminio/go-custom-metrics/internal/compress"
+	"github.com/mikeziminio/go-custom-metrics/internal/hasher"
 	"github.com/mikeziminio/go-custom-metrics/internal/model"
 	"github.com/mikeziminio/go-custom-metrics/internal/retrier"
 )
@@ -66,6 +67,7 @@ type Agent struct {
 	client         *http.Client
 	baseURL        string
 	useCompress    bool
+	hashKey        []byte
 	retrier        Retrier
 	logger         *zap.Logger
 }
@@ -98,6 +100,7 @@ func New(
 	pollInterval time.Duration,
 	reportInterval time.Duration,
 	useCompress bool,
+	hashKey []byte,
 	timeout time.Duration,
 	logger *zap.Logger,
 ) *Agent {
@@ -116,6 +119,7 @@ func New(
 		client:         client,
 		baseURL:        baseURL,
 		useCompress:    useCompress,
+		hashKey:        hashKey,
 		retrier:        r,
 		logger:         logger,
 	}
@@ -195,6 +199,10 @@ func (a *Agent) SendByBatch(ctx context.Context, metrics []model.Metric, useComp
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, bodyReader)
 	if err != nil {
 		return fmt.Errorf("failed to init request: %w", err)
+	}
+	if len(a.hashKey) > 0 {
+		h := hasher.HexHash(body, a.hashKey)
+		req.Header.Set(hasher.HashHeader, h)
 	}
 	req.Header.Set("Accept", "application/json")
 	if useCompress {

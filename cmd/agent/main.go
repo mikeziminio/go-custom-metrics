@@ -29,6 +29,7 @@ func main() {
 		time.Duration(float64(time.Second)*c.PollInterval),
 		time.Duration(float64(time.Second)*c.ReportInterval),
 		c.UseCompress,
+		[]byte(c.HashKey),
 		time.Duration(float64(time.Second)*c.Timeout),
 		logger,
 	)

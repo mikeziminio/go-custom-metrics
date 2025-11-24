@@ -193,7 +193,6 @@ func (a *APIServer) Get(res http.ResponseWriter, req *http.Request) {
 	}
 
 	res.Header().Set("Content-Type", "application/json")
-	res.WriteHeader(http.StatusOK)
 	_, err = res.Write(resData)
 	if err != nil {
 		a.handleInternalServerError(res, fmt.Errorf("failed to write response: %w", err))

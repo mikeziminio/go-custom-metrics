@@ -1,6 +1,7 @@
 package log
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -9,22 +10,16 @@ import (
 
 type responseWriter struct {
 	http.ResponseWriter
-	defaultStatusCode int
-	written           bool
-	bytesWritten      int
+	statusCode   int
+	bytesWritten int
 }
 
 func (rw *responseWriter) WriteHeader(code int) {
-	if !rw.written {
-		rw.ResponseWriter.WriteHeader(code)
-		rw.written = true
-	}
+	rw.statusCode = code
+	rw.ResponseWriter.WriteHeader(code)
 }
 
 func (rw *responseWriter) Write(data []byte) (int, error) {
-	if !rw.written {
-		rw.WriteHeader(rw.defaultStatusCode)
-	}
 	rw.bytesWritten += len(data)
 	return rw.ResponseWriter.Write(data)
 }
@@ -43,11 +38,12 @@ func (m *LoggerMiddleware) MiddlewareHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 
-		wrapped := &responseWriter{ResponseWriter: w, defaultStatusCode: http.StatusOK}
+		wrapped := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
 
 		m.logger.Info("Request started",
 			zap.String("method", r.Method),
 			zap.String("url", r.URL.String()),
+			zap.String("request_headers", fmt.Sprintf("%#v", r.Header)),
 		)
 
 		next.ServeHTTP(wrapped, r)
@@ -56,7 +52,8 @@ func (m *LoggerMiddleware) MiddlewareHandler(next http.Handler) http.Handler {
 		m.logger.Info("Request completed",
 			zap.String("method", r.Method),
 			zap.String("url", r.URL.String()),
-			zap.Int("status_code", wrapped.defaultStatusCode),
+			zap.String("response_headers", fmt.Sprintf("%#v", wrapped.Header())),
+			zap.Int("status_code", wrapped.statusCode),
 			zap.Int("bytes_written", wrapped.bytesWritten),
 			zap.Duration("duration", duration),
 		)

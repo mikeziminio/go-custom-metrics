@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/mikeziminio/go-custom-metrics/internal/compress"
+	"github.com/mikeziminio/go-custom-metrics/internal/hasher"
 	"github.com/mikeziminio/go-custom-metrics/internal/log"
 	"github.com/mikeziminio/go-custom-metrics/internal/model"
 )
@@ -39,6 +40,7 @@ type Syncer interface {
 type APIServer struct {
 	address       string
 	storeInterval time.Duration
+	hashKey       []byte
 	storage       Storage
 	router        *chi.Mux
 	httpServer    *http.Server
@@ -48,6 +50,7 @@ type APIServer struct {
 func New(
 	address string,
 	storeInterval time.Duration,
+	hashKey []byte,
 	storage Storage,
 	logger *zap.Logger,
 ) *APIServer {
@@ -63,6 +66,7 @@ func New(
 	a := &APIServer{
 		address:       address,
 		storeInterval: storeInterval,
+		hashKey:       hashKey,
 		storage:       storage,
 		router:        r,
 		httpServer:    httpServer,
@@ -75,11 +79,16 @@ func New(
 func (a *APIServer) RegisterRoutes() {
 	r := a.router
 
-	lmw := log.NewLoggerMiddleware(a.logger)
-
 	r.Use(middleware.StripSlashes)
+
+	lmw := log.NewLoggerMiddleware(a.logger)
 	r.Use(lmw.MiddlewareHandler)
+
 	r.Use(compress.DecompressMiddlewareHandler)
+	if len(a.hashKey) > 0 {
+		hmw := hasher.NewHasherMiddleware(a.hashKey, a.logger)
+		r.Use(hmw.MiddlewareHandler)
+	}
 	r.Use(compress.CompressMiddlewareHandler)
 
 	r.Get("/", a.List)

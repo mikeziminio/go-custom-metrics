@@ -13,6 +13,7 @@ type Config struct {
 	FileStoragePath string  `envconfig:"FILE_STORAGE_PATH"`
 	Restore         bool    `envconfig:"RESTORE"`
 	DatabaseDSN     string  `envconfig:"DATABASE_DSN"`
+	HashKey         string  `envconfig:"KEY"`
 	LogLevel        string
 }
 
@@ -22,6 +23,7 @@ var (
 	DefaultFileStoragePath = "./data.json"
 	DefaultRestore         = false
 	DefaultDatabaseDSN     = ""
+	DefaultHashKey         = ""
 	DefaultLogLevel        = "info"
 )
 
@@ -36,8 +38,8 @@ func NewFromEnvsAndFlags() (*Config, error) {
 		"путь до файла, куда сохраняются текущие значения")
 	flag.BoolVar(&c.Restore, "r", DefaultRestore,
 		"следует ли загружать ранее сохранённые значения из указанного файла при старте сервера")
-	flag.StringVar(&c.DatabaseDSN, "d", DefaultDatabaseDSN,
-		"database DSN")
+	flag.StringVar(&c.DatabaseDSN, "d", DefaultDatabaseDSN, "database DSN")
+	flag.StringVar(&c.HashKey, "k", DefaultHashKey, "ключ подписи")
 	flag.Parse()
 
 	// по ТЗ переменные среды перезаписывают флаги

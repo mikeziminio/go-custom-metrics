@@ -59,6 +59,7 @@ func main() {
 	s := server.New(
 		c.Address,
 		time.Duration(float64(time.Second)*c.StoreInterval),
+		[]byte(c.HashKey),
 		storage,
 		logger,
 	)
