@@ -11,13 +11,23 @@ import (
 
 const HashHeader = "HashSHA256"
 
-type HasherMiddleware struct {
+func MiddlewareHandler(key []byte, logger *zap.Logger) func(http.Handler) http.Handler {
+	if len(key) == 0 {
+		return func(next http.Handler) http.Handler {
+			return next
+		}
+	}
+	hmw := newHasherMiddleware(key, logger)
+	return hmw.middlewareHandler
+}
+
+type hasherMiddleware struct {
 	key    []byte
 	logger *zap.Logger
 }
 
-func NewHasherMiddleware(key []byte, logger *zap.Logger) *HasherMiddleware {
-	return &HasherMiddleware{
+func newHasherMiddleware(key []byte, logger *zap.Logger) *hasherMiddleware {
+	return &hasherMiddleware{
 		key:    bytes.Clone(key),
 		logger: logger,
 	}
@@ -42,7 +52,7 @@ func (rc *readCloser) Close() error { //nolint:revive // необходимо р
 	return nil
 }
 
-func (m *HasherMiddleware) MiddlewareHandler(next http.Handler) http.Handler {
+func (m *hasherMiddleware) middlewareHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var data bytes.Buffer
 		_, err := io.Copy(&data, r.Body)
@@ -56,11 +66,7 @@ func (m *HasherMiddleware) MiddlewareHandler(next http.Handler) http.Handler {
 		transmittedHash := r.Header.Get(HashHeader)
 		computedHash := HexHash(data.Bytes(), m.key)
 		bodyLen := data.Len()
-		m.logger.Info("hasher",
-			zap.Int("len", bodyLen),
-			zap.String("transmittedHash", transmittedHash),
-			zap.String("computedHash", computedHash),
-		)
+
 		// ниже transmittedHash != "" - особенность работы yandex тестов.
 		// даже если у сервера стоит параметр KEY, но агент не передал хэш,
 		// то хэш на стороне сервера не проверяется

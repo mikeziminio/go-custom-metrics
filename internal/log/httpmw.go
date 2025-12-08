@@ -8,6 +8,11 @@ import (
 	"go.uber.org/zap"
 )
 
+func MiddlewareHandler(logger *zap.Logger) func(http.Handler) http.Handler {
+	lmw := newLoggerMiddleware(logger)
+	return lmw.middlewareHandler
+}
+
 type responseWriter struct {
 	http.ResponseWriter
 	statusCode   int
@@ -24,17 +29,17 @@ func (rw *responseWriter) Write(data []byte) (int, error) {
 	return rw.ResponseWriter.Write(data)
 }
 
-type LoggerMiddleware struct {
+type loggerMiddleware struct {
 	logger *zap.Logger
 }
 
-func NewLoggerMiddleware(logger *zap.Logger) *LoggerMiddleware {
-	return &LoggerMiddleware{
+func newLoggerMiddleware(logger *zap.Logger) *loggerMiddleware {
+	return &loggerMiddleware{
 		logger: logger,
 	}
 }
 
-func (m *LoggerMiddleware) MiddlewareHandler(next http.Handler) http.Handler {
+func (m *loggerMiddleware) middlewareHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 
@@ -43,7 +48,6 @@ func (m *LoggerMiddleware) MiddlewareHandler(next http.Handler) http.Handler {
 		m.logger.Info("Request started",
 			zap.String("method", r.Method),
 			zap.String("url", r.URL.String()),
-			zap.String("request_headers", fmt.Sprintf("%#v", r.Header)),
 		)
 
 		next.ServeHTTP(wrapped, r)

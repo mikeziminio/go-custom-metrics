@@ -8,6 +8,6 @@ import (
 
 func HexHash(data []byte, key []byte) string {
 	hasher := hmac.New(sha256.New, key)
-	hasher.Write(data)
+	_, _ = hasher.Write(data) // hash.Hash.Write() never returns errors
 	return hex.EncodeToString(hasher.Sum(nil))
 }

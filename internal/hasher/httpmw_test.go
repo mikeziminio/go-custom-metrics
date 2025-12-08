@@ -14,7 +14,7 @@ import (
 func TestNewHasherMiddleware(t *testing.T) {
 	key := []byte("test-key")
 
-	middleware := NewHasherMiddleware(key, zap.NewNop())
+	middleware := newHasherMiddleware(key, zap.NewNop())
 	assert.NotNil(t, middleware)
 	assert.Equal(t, key, middleware.key)
 }
@@ -31,8 +31,8 @@ func TestHasherMiddleware_MiddlewareHandler(t *testing.T) {
 
 		rr := httptest.NewRecorder()
 
-		middleware := NewHasherMiddleware(key, zap.NewNop())
-		handler := middleware.MiddlewareHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		middleware := newHasherMiddleware(key, zap.NewNop())
+		handler := middleware.middlewareHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			body, _ := io.ReadAll(r.Body)
 			assert.Equal(t, data, body)
 			w.WriteHeader(http.StatusOK)
@@ -51,8 +51,8 @@ func TestHasherMiddleware_MiddlewareHandler(t *testing.T) {
 
 		rr := httptest.NewRecorder()
 
-		middleware := NewHasherMiddleware(key, zap.NewNop())
-		handler := middleware.MiddlewareHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		middleware := newHasherMiddleware(key, zap.NewNop())
+		handler := middleware.middlewareHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 		}))
 
@@ -67,8 +67,8 @@ func TestHasherMiddleware_MiddlewareHandler(t *testing.T) {
 
 		rr := httptest.NewRecorder()
 
-		middleware := NewHasherMiddleware(key, zap.NewNop())
-		handler := middleware.MiddlewareHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		middleware := newHasherMiddleware(key, zap.NewNop())
+		handler := middleware.middlewareHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Write(data)
 		}))
 
@@ -83,8 +83,8 @@ func TestHasherMiddleware_MiddlewareHandler(t *testing.T) {
 
 		rr := httptest.NewRecorder()
 
-		middleware := NewHasherMiddleware(key, zap.NewNop())
-		handler := middleware.MiddlewareHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		middleware := newHasherMiddleware(key, zap.NewNop())
+		handler := middleware.middlewareHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			body, _ := io.ReadAll(r.Body)
 			assert.Empty(t, body)
 			w.WriteHeader(http.StatusOK)

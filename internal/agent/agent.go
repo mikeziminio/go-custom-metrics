@@ -151,18 +151,10 @@ func randFloat64() float64 {
 	return float64(val) / (float64(math.MaxUint64) + 1)
 }
 
-func (a *Agent) Collect() {
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go func() {
-		defer wg.Done()
-		a.collectBasic()
-	}()
-	go func() {
-		defer wg.Done()
-		a.collectExtra()
-	}()
-	wg.Wait()
+func (a *Agent) Collect() error {
+	a.collectBasic()
+	err := a.collectExtra()
+	return err
 }
 
 func (a *Agent) collectBasic() {
@@ -202,14 +194,14 @@ func (a *Agent) collectBasic() {
 	a.counters[MetricPollCount]++
 }
 
-func (a *Agent) collectExtra() {
+func (a *Agent) collectExtra() error {
 	vm, err := mem.VirtualMemory()
 	if err != nil {
-		a.logger.Fatal("failed to fetch mem metrics")
+		return fmt.Errorf("failed to fetch mem metrics: %w", err)
 	}
 	utils, err := cpu.Percent(time.Second, true)
 	if err != nil {
-		a.logger.Fatal("failed to fetch cpu metrics")
+		return fmt.Errorf("failed to fetch cpu metrics: %w", err)
 	}
 
 	a.mu.Lock()
@@ -219,6 +211,7 @@ func (a *Agent) collectExtra() {
 	for i, u := range utils {
 		a.gauges[MetricCPUUtilization+strconv.Itoa(i)] = u
 	}
+	return nil
 }
 
 func (a *Agent) SendByBatch(ctx context.Context, metrics []model.Metric, useCompress bool) error {
@@ -315,7 +308,9 @@ func (a *Agent) Run(ctx context.Context) {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				a.Collect()
+				if err := a.Collect(); err != nil {
+					a.logger.Error("failed to collect metrics", zap.Error(err))
+				}
 			}
 		}
 	}()

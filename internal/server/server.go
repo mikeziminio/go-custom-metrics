@@ -80,15 +80,9 @@ func (a *APIServer) RegisterRoutes() {
 	r := a.router
 
 	r.Use(middleware.StripSlashes)
-
-	lmw := log.NewLoggerMiddleware(a.logger)
-	r.Use(lmw.MiddlewareHandler)
-
+	r.Use(log.MiddlewareHandler(a.logger))
 	r.Use(compress.DecompressMiddlewareHandler)
-	if len(a.hashKey) > 0 {
-		hmw := hasher.NewHasherMiddleware(a.hashKey, a.logger)
-		r.Use(hmw.MiddlewareHandler)
-	}
+	r.Use(hasher.MiddlewareHandler(a.hashKey, a.logger))
 	r.Use(compress.CompressMiddlewareHandler)
 
 	r.Get("/", a.List)
