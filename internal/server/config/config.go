@@ -15,6 +15,8 @@ type Config struct {
 	DatabaseDSN     string  `envconfig:"DATABASE_DSN"`
 	HashKey         string  `envconfig:"KEY"`
 	LogLevel        string
+	AuditFile       string `envconfig:"AUDIT_FILE"`
+	AuditURL        string `envconfig:"AUDIT_URL"`
 }
 
 var (
@@ -25,6 +27,8 @@ var (
 	DefaultDatabaseDSN     = ""
 	DefaultHashKey         = ""
 	DefaultLogLevel        = "info"
+	DefaultAuditFile       = ""
+	DefaultAuditURL        = ""
 )
 
 func NewFromEnvsAndFlags() (*Config, error) {
@@ -40,6 +44,8 @@ func NewFromEnvsAndFlags() (*Config, error) {
 		"следует ли загружать ранее сохранённые значения из указанного файла при старте сервера")
 	flag.StringVar(&c.DatabaseDSN, "d", DefaultDatabaseDSN, "database DSN")
 	flag.StringVar(&c.HashKey, "k", DefaultHashKey, "ключ подписи")
+	flag.StringVar(&c.AuditFile, "audit-file", DefaultAuditFile, "путь к файлу, в который сохраняются логи аудита")
+	flag.StringVar(&c.AuditURL, "audit-url", DefaultAuditURL, "полный URL, по которому отправляются логи аудита")
 	flag.Parse()
 
 	// по ТЗ переменные среды перезаписывают флаги
