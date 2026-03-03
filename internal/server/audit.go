@@ -28,13 +28,27 @@ type AuditConfig struct {
 	AuditURL  string
 }
 
-// AuditLogger handles logging audit events to file and/or HTTP endpoint
+// Observer interface for audit logging observers
+type Observer interface {
+	Update(event AuditEvent) error
+}
+
+// Subject interface for audit logging subject
+type Subject interface {
+	Register(observer Observer)
+	Deregister(observer Observer)
+	Notify(event AuditEvent) error
+}
+
+// AuditLogger implements both Subject and Observer interfaces
 type AuditLogger struct {
-	logger *zap.Logger
-	file   *os.File
-	client *http.Client
-	url    string
-	mu     sync.RWMutex
+	logger    *zap.Logger
+	observers []Observer
+	mu        sync.RWMutex
+	client    *http.Client
+	url       string
+	file      *os.File
+	filePath  string
 }
 
 // NewAuditLogger creates a new AuditLogger instance
@@ -51,41 +65,62 @@ func NewAuditLogger(logger *zap.Logger, config AuditConfig) (*AuditLogger, error
 			return nil, fmt.Errorf("failed to open audit file %s: %w", config.AuditFile, err)
 		}
 		al.file = file
+		al.filePath = config.AuditFile
+	}
+
+	// Register observers based on configuration
+	if config.AuditFile != "" {
+		fileObserver := &FileObserver{file: al.file}
+		al.Register(fileObserver)
+	}
+
+	if config.AuditURL != "" {
+		httpObserver := &HTTPObserver{client: al.client, url: al.url}
+		al.Register(httpObserver)
 	}
 
 	return al, nil
 }
 
-// Log logs an audit event to configured destinations
-func (al *AuditLogger) Log(ctx context.Context, event AuditEvent) error {
+// Register adds an observer to the audit logger
+func (al *AuditLogger) Register(observer Observer) {
+	al.mu.Lock()
+	defer al.mu.Unlock()
+	al.observers = append(al.observers, observer)
+}
+
+// Deregister removes an observer from the audit logger
+func (al *AuditLogger) Deregister(observer Observer) {
+	al.mu.Lock()
+	defer al.mu.Unlock()
+	for i, obs := range al.observers {
+		if obs == observer {
+			al.observers = append(al.observers[:i], al.observers[i+1:]...)
+			break
+		}
+	}
+}
+
+// Notify notifies all registered observers about an audit event
+func (al *AuditLogger) Notify(event AuditEvent) error {
+	al.mu.RLock()
+	defer al.mu.RUnlock()
+
 	var wg sync.WaitGroup
 	var errs []error
 
-	// Log to file if configured
-	if al.file != nil {
+	for _, observer := range al.observers {
 		wg.Add(1)
-		go func() {
+		go func(obs Observer) {
 			defer wg.Done()
-			if err := al.logToFile(event); err != nil {
-				errs = append(errs, fmt.Errorf("file logging failed: %w", err))
+			if err := obs.Update(event); err != nil {
+				errs = append(errs, err)
 			}
-		}()
-	}
-
-	// Log to HTTP endpoint if configured
-	if al.url != "" {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			if err := al.logToHTTP(ctx, event); err != nil {
-				errs = append(errs, fmt.Errorf("HTTP logging failed: %w", err))
-			}
-		}()
+		}(observer)
 	}
 
 	wg.Wait()
 
-	// Combine all errors
 	if len(errs) > 0 {
 		return fmt.Errorf("audit logging errors: %v", errs)
 	}
@@ -93,48 +128,9 @@ func (al *AuditLogger) Log(ctx context.Context, event AuditEvent) error {
 	return nil
 }
 
-// logToFile writes audit event to file
-func (al *AuditLogger) logToFile(event AuditEvent) error {
-	al.mu.Lock()
-	defer al.mu.Unlock()
-
-	data, err := json.Marshal(event)
-	if err != nil {
-		return fmt.Errorf("failed to marshal audit event: %w", err)
-	}
-
-	_, err = al.file.WriteString(string(data) + "\n")
-	if err != nil {
-		return fmt.Errorf("failed to write to audit file: %w", err)
-	}
-
-	return nil
-}
-
-// logToHTTP sends audit event to HTTP endpoint
-func (al *AuditLogger) logToHTTP(ctx context.Context, event AuditEvent) error {
-	data, err := json.Marshal(event)
-	if err != nil {
-		return fmt.Errorf("failed to marshal audit event: %w", err)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, "POST", al.url, bytes.NewBuffer(data))
-	if err != nil {
-		return fmt.Errorf("failed to create HTTP request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := al.client.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to send HTTP request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("HTTP request failed with status code %d", resp.StatusCode)
-	}
-
-	return nil
+// Log logs an audit event to configured destinations
+func (al *AuditLogger) Log(ctx context.Context, event AuditEvent) error {
+	return al.Notify(event)
 }
 
 // Close closes the audit logger and associated file
@@ -152,6 +148,62 @@ func (al *AuditLogger) Close() error {
 
 	if len(errs) > 0 {
 		return fmt.Errorf("audit logger closing errors: %v", errs)
+	}
+
+	return nil
+}
+
+// FileObserver implements Observer interface for file logging
+type FileObserver struct {
+	file *os.File
+	mu   sync.RWMutex
+}
+
+// Update implements Observer interface for file logging
+func (fo *FileObserver) Update(event AuditEvent) error {
+	fo.mu.Lock()
+	defer fo.mu.Unlock()
+
+	data, err := json.Marshal(event)
+	if err != nil {
+		return fmt.Errorf("failed to marshal audit event: %w", err)
+	}
+
+	_, err = fo.file.WriteString(string(data) + "\n")
+	if err != nil {
+		return fmt.Errorf("failed to write to audit file: %w", err)
+	}
+
+	return nil
+}
+
+// HTTPObserver implements Observer interface for HTTP logging
+type HTTPObserver struct {
+	client *http.Client
+	url    string
+}
+
+// Update implements Observer interface for HTTP logging
+func (ho *HTTPObserver) Update(event AuditEvent) error {
+	data, err := json.Marshal(event)
+	if err != nil {
+		return fmt.Errorf("failed to marshal audit event: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(context.Background(), "POST", ho.url, bytes.NewBuffer(data))
+	if err != nil {
+		return fmt.Errorf("failed to create HTTP request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := ho.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send HTTP request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("HTTP request failed with status code %d", resp.StatusCode)
 	}
 
 	return nil
