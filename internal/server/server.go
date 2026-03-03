@@ -105,12 +105,8 @@ func (a *APIServer) Run(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	// Start pprof server on a separate port if configured
 	go func() {
 		pprofAddr := a.pprofAddress
-		if pprofAddr == "" {
-			pprofAddr = a.address + "-pprof"
-		}
 		a.logger.Info("Starting pprof server", zap.String("address", pprofAddr))
 		err := http.ListenAndServe(pprofAddr, nil)
 		if err != nil {

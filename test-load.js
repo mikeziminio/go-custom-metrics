@@ -8,7 +8,7 @@ const errorRate = new Rate("errors");
 export const options = {
   stages: [
     { duration: "30s", target: 10 }, // Ramp-up to 10 VUs
-    { duration: "1m", target: 10 }, // Stay at 10 VUs
+    { duration: "5m", target: 10 }, // Stay at 10 VUs
     { duration: "30s", target: 0 }, // Ramp-down to 0 VUs
   ],
   thresholds: {
