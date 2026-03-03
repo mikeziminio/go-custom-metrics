@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	stdlog "log"
+	_ "net/http/pprof"
 	"time"
 
 	"go.uber.org/zap"
@@ -83,6 +84,7 @@ func main() {
 		storage,
 		logger,
 		auditLogger,
+		c.PprofAddress,
 	)
 	s.RegisterRoutes()
 	s.Run(ctx)

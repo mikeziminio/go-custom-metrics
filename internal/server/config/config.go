@@ -9,6 +9,7 @@ import (
 
 type Config struct {
 	Address         string  `envconfig:"ADDRESS"`
+	PprofAddress    string  `envconfig:"PPROF_ADDRESS"`
 	StoreInterval   float64 `envconfig:"STORE_INTERVAL"`
 	FileStoragePath string  `envconfig:"FILE_STORAGE_PATH"`
 	Restore         bool    `envconfig:"RESTORE"`
@@ -21,6 +22,7 @@ type Config struct {
 
 var (
 	DefaultAddress         = "localhost:8080"
+	DefaultPprofAddress    = "localhost:6060"
 	DefaultStoreInterval   = 300.0
 	DefaultFileStoragePath = "./data.json"
 	DefaultRestore         = false
@@ -37,6 +39,7 @@ func NewFromEnvsAndFlags() (*Config, error) {
 	c.LogLevel = DefaultLogLevel
 
 	flag.StringVar(&c.Address, "a", DefaultAddress, "хост:порт http сервера")
+	flag.StringVar(&c.PprofAddress, "pprof-address", DefaultPprofAddress, "хост:порт для запуска pprof сервера")
 	flag.Float64Var(&c.StoreInterval, "i", DefaultStoreInterval, "интервал сохраниения в файл в секундах")
 	flag.StringVar(&c.FileStoragePath, "f", DefaultFileStoragePath,
 		"путь до файла, куда сохраняются текущие значения")

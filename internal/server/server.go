@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"net/http"
+	_ "net/http/pprof"
 	"os/signal"
 	"syscall"
 	"time"
@@ -46,6 +47,7 @@ type APIServer struct {
 	httpServer    *http.Server
 	logger        *zap.Logger
 	auditLogger   *AuditLogger
+	pprofAddress  string
 }
 
 func New(
@@ -55,6 +57,7 @@ func New(
 	storage Storage,
 	logger *zap.Logger,
 	auditLogger *AuditLogger,
+	pprofAddress string,
 ) *APIServer {
 	r := chi.NewRouter()
 
@@ -74,6 +77,7 @@ func New(
 		httpServer:    httpServer,
 		logger:        logger,
 		auditLogger:   auditLogger,
+		pprofAddress:  pprofAddress,
 	}
 
 	return a
@@ -100,6 +104,19 @@ func (a *APIServer) RegisterRoutes() {
 func (a *APIServer) Run(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+
+	// Start pprof server on a separate port if configured
+	go func() {
+		pprofAddr := a.pprofAddress
+		if pprofAddr == "" {
+			pprofAddr = a.address + "-pprof"
+		}
+		a.logger.Info("Starting pprof server", zap.String("address", pprofAddr))
+		err := http.ListenAndServe(pprofAddr, nil)
+		if err != nil {
+			a.logger.Error("failed to start pprof server", zap.Error(err))
+		}
+	}()
 
 	go func() {
 		a.logger.Info("Server started", zap.String("address", a.httpServer.Addr))
