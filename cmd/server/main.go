@@ -56,12 +56,33 @@ func main() {
 		}
 	}
 
+	// Create audit logger if configured
+	var auditLogger *server.AuditLogger
+	if c.AuditFile != "" || c.AuditURL != "" {
+		auditConfig := server.AuditConfig{
+			AuditFile: c.AuditFile,
+			AuditURL:  c.AuditURL,
+		}
+		auditLogger, err = server.NewAuditLogger(logger, auditConfig)
+		if err != nil {
+			logger.Fatal("failed to init audit logger", zap.Error(err))
+		}
+		defer func() {
+			if auditLogger != nil {
+				if err := auditLogger.Close(); err != nil {
+					logger.Error("failed to close audit logger", zap.Error(err))
+				}
+			}
+		}()
+	}
+
 	s := server.New(
 		c.Address,
 		time.Duration(float64(time.Second)*c.StoreInterval),
 		[]byte(c.HashKey),
 		storage,
 		logger,
+		auditLogger,
 	)
 	s.RegisterRoutes()
 	s.Run(ctx)

@@ -45,6 +45,7 @@ type APIServer struct {
 	router        *chi.Mux
 	httpServer    *http.Server
 	logger        *zap.Logger
+	auditLogger   *AuditLogger
 }
 
 func New(
@@ -53,6 +54,7 @@ func New(
 	hashKey []byte,
 	storage Storage,
 	logger *zap.Logger,
+	auditLogger *AuditLogger,
 ) *APIServer {
 	r := chi.NewRouter()
 
@@ -71,6 +73,7 @@ func New(
 		router:        r,
 		httpServer:    httpServer,
 		logger:        logger,
+		auditLogger:   auditLogger,
 	}
 
 	return a

@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
@@ -48,6 +49,19 @@ func (a *APIServer) Update(res http.ResponseWriter, req *http.Request) {
 			fmt.Errorf("failed to update metric value %s / %s: %w", data.MType, data.ID, err),
 		)
 		return
+	}
+
+	// Log audit event
+	if a.auditLogger != nil {
+		ipAddress := extractIPAddress(req)
+		event := AuditEvent{
+			Timestamp: time.Now().Unix(),
+			Metrics:   []string{fmt.Sprintf("%s:%s", data.MType, data.ID)},
+			IPAddress: ipAddress,
+		}
+		if err := a.auditLogger.Log(req.Context(), event); err != nil {
+			a.logger.Error("Failed to log audit event", zap.Error(err))
+		}
 	}
 
 	resData, err := json.Marshal(m)
@@ -104,6 +118,23 @@ func (a *APIServer) Updates(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	// Log audit event
+	if a.auditLogger != nil {
+		ipAddress := extractIPAddress(req)
+		metricNames := make([]string, 0, len(data))
+		for _, d := range data {
+			metricNames = append(metricNames, fmt.Sprintf("%s:%s", d.MType, d.ID))
+		}
+		event := AuditEvent{
+			Timestamp: time.Now().Unix(),
+			Metrics:   metricNames,
+			IPAddress: ipAddress,
+		}
+		if err := a.auditLogger.Log(req.Context(), event); err != nil {
+			a.logger.Error("Failed to log audit event", zap.Error(err))
+		}
+	}
+
 	res.WriteHeader(http.StatusOK)
 }
 
@@ -152,6 +183,19 @@ func (a *APIServer) UpdateByParams(res http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		a.handleInternalServerError(res, fmt.Errorf("failed to update metric value: %w", err))
 		return
+	}
+
+	// Log audit event
+	if a.auditLogger != nil {
+		ipAddress := extractIPAddress(req)
+		event := AuditEvent{
+			Timestamp: time.Now().Unix(),
+			Metrics:   []string{fmt.Sprintf("%s:%s", metricType, metricName)},
+			IPAddress: ipAddress,
+		}
+		if err := a.auditLogger.Log(req.Context(), event); err != nil {
+			a.logger.Error("Failed to log audit event", zap.Error(err))
+		}
 	}
 
 	res.WriteHeader(http.StatusOK)

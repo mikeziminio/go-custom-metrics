@@ -1,0 +1,33 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "theme": "opencode",
+  "keybinds": {
+    "leader": "ctrl+x"
+  },
+  "autoupdate": true,
+  "permission": {
+    "bash": "deny",
+    "skill": {
+      "*": "deny"
+    }
+  },
+  "provider": {
+    "sber-qwen-coder-30b-dev": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "sber-qwen-coder-30b-dev",
+      "options": {
+        "baseURL": "https://litellm.sberned.ru/",
+        "apiKey": "sk-zuVmfVIT_FpWDIYD4dcAlg"
+      },
+      "models": {
+        "qwen3-coder-30b-dev": {
+          "name": "qwen3-coder-30b-dev",
+          "limit": {
+            "context": 131072,
+            "output": 65536
+          }
+        }
+      }
+    }
+  }
+}
