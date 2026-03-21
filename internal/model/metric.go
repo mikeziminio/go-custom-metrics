@@ -4,14 +4,11 @@ import (
 	"errors"
 )
 
-// MetricType represents the type of a metric (counter or gauge).
 type MetricType string
 
 const (
-	// Counter represents a counter metric type.
 	Counter MetricType = "counter"
-	// Gauge represents a gauge metric type.
-	Gauge MetricType = "gauge"
+	Gauge   MetricType = "gauge"
 )
 
 // NewMetricTypeFromString converts a string to a MetricType.

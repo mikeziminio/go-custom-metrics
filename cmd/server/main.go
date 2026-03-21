@@ -57,7 +57,6 @@ func main() {
 		}
 	}
 
-	// Create audit logger if configured
 	var auditLogger *server.AuditLogger
 	if c.AuditFile != "" || c.AuditURL != "" {
 		auditConfig := server.AuditConfig{
