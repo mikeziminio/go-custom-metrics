@@ -7,8 +7,9 @@ package server
 import (
 	"context"
 
-	"github.com/mikeziminio/go-custom-metrics/internal/model"
 	mock "github.com/stretchr/testify/mock"
+
+	"github.com/mikeziminio/go-custom-metrics/internal/model"
 )
 
 // NewMockStorage creates a new instance of MockStorage. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

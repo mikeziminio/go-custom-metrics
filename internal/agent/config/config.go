@@ -7,6 +7,10 @@ import (
 	"github.com/kelseyhightower/envconfig"
 )
 
+// Config holds the configuration settings for the Agent.
+//
+// Values can be set via environment variables (prefixed with AGENT_) or
+// command-line flags. Environment variables take precedence over flags.
 type Config struct {
 	Address        string  `envconfig:"ADDRESS"`
 	ReportInterval float64 `envconfig:"REPORT_INTERVAL"`
@@ -29,6 +33,13 @@ var (
 	DefaultHashKey        = ""
 )
 
+// New creates a new Config by reading environment variables
+// and command-line flags.
+//
+// Environment variables take precedence over flags. Valid environment variable
+// prefixes are: ADDRESS, REPORT_INTERVAL, POLL_INTERVAL, KEY, RATE_LIMIT.
+//
+// Returns a *Config and an error if parsing fails.
 func NewFromEnvsAndFlags() (*Config, error) {
 	c := Config{}
 

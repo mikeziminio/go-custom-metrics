@@ -23,6 +23,14 @@ type MemStorage struct {
 
 var _ server.Storage = (*MemStorage)(nil)
 
+// New creates a new MemStorage instance.
+//
+// Parameters:
+//   - syncWithUpdate: Whether to sync to file after each update
+//   - fileStoragePath: Path to the file for synchronization
+//   - logger: Logger instance
+//
+// Returns a new MemStorage and an error if file syncer initialization fails.
 func New(syncWithUpdate bool, fileStoragePath string, logger *zap.Logger) (*MemStorage, error) {
 	snc := syncer.New(fileStoragePath, logger)
 	s := MemStorage{
@@ -34,13 +42,15 @@ func New(syncWithUpdate bool, fileStoragePath string, logger *zap.Logger) (*MemS
 	return &s, nil
 }
 
+// Update updates a single metric in memory.
+//
+// For counters, the value is incremented. For gauges, the value is replaced.
+// If syncWithUpdate is true, it also syncs to file.
 func (s *MemStorage) Update(ctx context.Context, m model.Metric) (*model.Metric, error) {
 	// todo: next sprint
 	// в текущем спринте не дается никаких требований на хранение метрик
 	// поэтому сейчас метрики типа Gauge перезатирают значение,
 	// а метрики типа Counter инкрементируют значение.
-	// Вероятно далее необходимо будет сохранять значение с конкретной
-	// временной меткой, но в рамках 1-го спринта это избыточно.
 	s.mu.Lock()
 	current, ok := s.metrics[m.ID]
 	if ok && m.MType == model.Counter {
@@ -58,6 +68,10 @@ func (s *MemStorage) Update(ctx context.Context, m model.Metric) (*model.Metric,
 	return &m, nil
 }
 
+// Updates updates multiple metrics in memory.
+//
+// For counters, the values are incremented. For gauges, the values are replaced.
+// If syncWithUpdate is true, it also syncs to file.
 func (s *MemStorage) Updates(ctx context.Context, metrics []model.Metric) error {
 	s.mu.Lock()
 	for _, m := range metrics {
@@ -78,6 +92,7 @@ func (s *MemStorage) Updates(ctx context.Context, metrics []model.Metric) error 
 	return nil
 }
 
+// List returns a copy of all metrics from memory.
 func (s *MemStorage) List(_ context.Context) (map[string]model.Metric, error) {
 	// todo: next sprints
 	// Возвращает копию мапы с метриками - не самый оптимальный вариант,
@@ -88,6 +103,9 @@ func (s *MemStorage) List(_ context.Context) (map[string]model.Metric, error) {
 	return maps.Clone(s.metrics), nil
 }
 
+// Get retrieves a specific metric from memory.
+//
+// Returns ErrMetricNotFound if the metric doesn't exist or has a different type.
 func (s *MemStorage) Get(_ context.Context, metricType model.MetricType, metricName string) (*model.Metric, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -98,6 +116,7 @@ func (s *MemStorage) Get(_ context.Context, metricType model.MetricType, metricN
 	return &m, nil
 }
 
+// Ping checks if the storage is alive (always returns nil).
 func (*MemStorage) Ping(_ context.Context) error {
 	return nil
 }

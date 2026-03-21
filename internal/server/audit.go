@@ -15,32 +15,44 @@ import (
 	"go.uber.org/zap"
 )
 
-// AuditEvent represents a single audit event
+// AuditEvent represents a single audit event.
+//
+// It contains information about the metric update: timestamp, affected metrics,
+// and the IP address of the client.
 type AuditEvent struct {
-	Timestamp int64    `json:"timestamp"`
+	Ts        int64    `json:"ts"`
 	Metrics   []string `json:"metrics"`
 	IPAddress string   `json:"ip_address"`
 }
 
-// AuditConfig holds configuration for audit logging
+// AuditConfig holds configuration for audit logging.
+//
+// It specifies the destinations for audit events: file and/or HTTP endpoint.
 type AuditConfig struct {
 	AuditFile string
 	AuditURL  string
 }
 
-// Observer interface for audit logging observers
+// Observer interface for audit logging observers.
+//
+// Implementations receive audit events and process them (e.g., write to file, send HTTP).
 type Observer interface {
 	Update(event AuditEvent) error
 }
 
-// Subject interface for audit logging subject
+// Subject interface for audit logging subject.
+//
+// It manages observers and notifies them about audit events.
 type Subject interface {
 	Register(observer Observer)
 	Deregister(observer Observer)
 	Notify(event AuditEvent) error
 }
 
-// AuditLogger implements both Subject and Observer interfaces
+// AuditLogger implements both Subject and Observer interfaces.
+//
+// It manages multiple audit destinations (file and/or HTTP) and broadcasts
+// audit events to all registered observers.
 type AuditLogger struct {
 	logger    *zap.Logger
 	observers []Observer
@@ -51,7 +63,13 @@ type AuditLogger struct {
 	filePath  string
 }
 
-// NewAuditLogger creates a new AuditLogger instance
+// NewAuditLogger creates a new AuditLogger instance.
+//
+// Parameters:
+//   - logger: Logger instance for logging audit operations
+//   - config: Audit configuration with file and/or URL destinations
+//
+// Returns a new *AuditLogger and an error if file initialization fails.
 func NewAuditLogger(logger *zap.Logger, config AuditConfig) (*AuditLogger, error) {
 	al := &AuditLogger{
 		logger: logger,
@@ -82,14 +100,14 @@ func NewAuditLogger(logger *zap.Logger, config AuditConfig) (*AuditLogger, error
 	return al, nil
 }
 
-// Register adds an observer to the audit logger
+// Register adds an observer to the audit logger.
 func (al *AuditLogger) Register(observer Observer) {
 	al.mu.Lock()
 	defer al.mu.Unlock()
 	al.observers = append(al.observers, observer)
 }
 
-// Deregister removes an observer from the audit logger
+// Deregister removes an observer from the audit logger.
 func (al *AuditLogger) Deregister(observer Observer) {
 	al.mu.Lock()
 	defer al.mu.Unlock()
@@ -101,7 +119,10 @@ func (al *AuditLogger) Deregister(observer Observer) {
 	}
 }
 
-// Notify notifies all registered observers about an audit event
+// Notify notifies all registered observers about an audit event.
+//
+// It sends the event concurrently to all observers and returns an error
+// if any observer fails.
 func (al *AuditLogger) Notify(event AuditEvent) error {
 	al.mu.RLock()
 	defer al.mu.RUnlock()
@@ -128,12 +149,16 @@ func (al *AuditLogger) Notify(event AuditEvent) error {
 	return nil
 }
 
-// Log logs an audit event to configured destinations
+// Log logs an audit event to configured destinations.
+//
+// This is a wrapper around Notify for convenience.
 func (al *AuditLogger) Log(ctx context.Context, event AuditEvent) error {
 	return al.Notify(event)
 }
 
-// Close closes the audit logger and associated file
+// Close closes the audit logger and associated file.
+//
+// Returns an error if any close operation fails.
 func (al *AuditLogger) Close() error {
 	al.mu.Lock()
 	defer al.mu.Unlock()
@@ -153,13 +178,15 @@ func (al *AuditLogger) Close() error {
 	return nil
 }
 
-// FileObserver implements Observer interface for file logging
+// FileObserver implements Observer interface for file logging.
 type FileObserver struct {
 	file *os.File
 	mu   sync.RWMutex
 }
 
-// Update implements Observer interface for file logging
+// Update implements Observer interface for file logging.
+//
+// It appends the JSON-encoded audit event to the file.
 func (fo *FileObserver) Update(event AuditEvent) error {
 	fo.mu.Lock()
 	defer fo.mu.Unlock()
@@ -177,13 +204,15 @@ func (fo *FileObserver) Update(event AuditEvent) error {
 	return nil
 }
 
-// HTTPObserver implements Observer interface for HTTP logging
+// HTTPObserver implements Observer interface for HTTP logging.
 type HTTPObserver struct {
 	client *http.Client
 	url    string
 }
 
-// Update implements Observer interface for HTTP logging
+// Update implements Observer interface for HTTP logging.
+//
+// It sends the JSON-encoded audit event to the HTTP endpoint.
 func (ho *HTTPObserver) Update(event AuditEvent) error {
 	data, err := json.Marshal(event)
 	if err != nil {
@@ -209,7 +238,9 @@ func (ho *HTTPObserver) Update(event AuditEvent) error {
 	return nil
 }
 
-// extractIPAddress extracts the IP address from the request
+// extractIPAddress extracts the IP address from the request.
+//
+// It checks X-Forwarded-For, X-Real-IP headers, and falls back to RemoteAddr.
 func extractIPAddress(r *http.Request) string {
 	// First try to get IP from X-Forwarded-For header
 	ip := r.Header.Get("X-Forwarded-For")

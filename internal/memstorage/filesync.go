@@ -9,6 +9,7 @@ import (
 	"github.com/mikeziminio/go-custom-metrics/internal/model"
 )
 
+// Restore loads metrics from the file into memory.
 func (s *MemStorage) Restore(_ context.Context) error {
 	metricSlice, err := s.syncer.Restore()
 	if err != nil {
@@ -23,6 +24,7 @@ func (s *MemStorage) Restore(_ context.Context) error {
 	return nil
 }
 
+// Sync saves metrics from memory to the file.
 func (s *MemStorage) Sync(_ context.Context) error {
 	s.mu.RLock()
 	values := maps.Values(s.metrics)

@@ -7,6 +7,10 @@ import (
 	"github.com/kelseyhightower/envconfig"
 )
 
+// Config holds the configuration settings for the Server.
+//
+// Values can be set via environment variables (prefixed with SERVER_) or
+// command-line flags. Environment variables take precedence over flags.
 type Config struct {
 	Address         string  `envconfig:"ADDRESS"`
 	PprofAddress    string  `envconfig:"PPROF_ADDRESS"`
@@ -33,6 +37,14 @@ var (
 	DefaultAuditURL        = ""
 )
 
+// New creates a new Config by reading environment variables
+// and command-line flags.
+//
+// Environment variables take precedence over flags. Valid environment variable
+// prefixes are: ADDRESS, PPROF_ADDRESS, STORE_INTERVAL, FILE_STORAGE_PATH,
+// RESTORE, DATABASE_DSN, KEY, AUDIT_FILE, AUDIT_URL.
+//
+// Returns a *Config and an error if parsing fails.
 func NewFromEnvsAndFlags() (*Config, error) {
 	c := Config{}
 
@@ -48,7 +60,7 @@ func NewFromEnvsAndFlags() (*Config, error) {
 	flag.StringVar(&c.DatabaseDSN, "d", DefaultDatabaseDSN, "database DSN")
 	flag.StringVar(&c.HashKey, "k", DefaultHashKey, "ключ подписи")
 	flag.StringVar(&c.AuditFile, "audit-file", DefaultAuditFile, "путь к файлу, в который сохраняются логи аудита")
-	flag.StringVar(&c.AuditURL, "audit-url", DefaultAuditURL, "полный URL, по которому отправляются логи аудита")
+	flag.StringVar(&c.AuditURL, "audit-url", DefaultAuditURL, "полный URL, по которой отправляются логи аудита")
 	flag.Parse()
 
 	// по ТЗ переменные среды перезаписывают флаги

@@ -14,11 +14,21 @@ const (
 	StorageFileMode = 0600
 )
 
+// FileSyncer handles file-based metric persistence.
+//
+// It can restore metrics from a file and sync metrics to a file.
 type FileSyncer struct {
 	fileStoragePath string
 	logger          *zap.Logger
 }
 
+// New creates a new FileSyncer instance.
+//
+// Parameters:
+//   - fileStoragePath: Path to the file for persistence
+//   - logger: Logger instance
+//
+// Returns a new FileSyncer.
 func New(fileStoragePath string, logger *zap.Logger) *FileSyncer {
 	return &FileSyncer{
 		fileStoragePath: fileStoragePath,
@@ -28,6 +38,9 @@ func New(fileStoragePath string, logger *zap.Logger) *FileSyncer {
 	}
 }
 
+// Restore loads metrics from the file.
+//
+// Returns a slice of metrics and an error if file reading or parsing fails.
 func (s *FileSyncer) Restore() ([]model.Metric, error) {
 	data, err := os.ReadFile(s.fileStoragePath)
 	if err != nil {
@@ -44,6 +57,7 @@ func (s *FileSyncer) Restore() ([]model.Metric, error) {
 	return metricSlice, nil
 }
 
+// Sync saves metrics to the file in JSON format.
 func (s *FileSyncer) Sync(metricSlice []model.Metric) error {
 	data, err := json.Marshal(metricSlice)
 	if err != nil {

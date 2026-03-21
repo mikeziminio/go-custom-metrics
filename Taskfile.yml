@@ -116,3 +116,8 @@ tasks:
       - "task -l"
       - "echo Bin directory: $BIN"
     silent: true
+
+  doc:
+    desc: Generate Go documentation and serve it
+    cmds:
+      - "godoc -http=:6060"

@@ -105,7 +105,7 @@ func TestAuditLogger_Notify(t *testing.T) {
 				return auditLogger, []*MockObserver{mockObserver1, mockObserver2}
 			},
 			event: AuditEvent{
-				Timestamp: 1234567890,
+				Ts:        1234567890,
 				Metrics:   []string{"metric1", "metric2"},
 				IPAddress: "127.0.0.1",
 			},
@@ -155,7 +155,7 @@ func TestAuditLogger_Log(t *testing.T) {
 				auditLogger.Register(mockObserver)
 
 				event := AuditEvent{
-					Timestamp: 1234567890,
+					Ts:        1234567890,
 					Metrics:   []string{"metric1", "metric2"},
 					IPAddress: "127.0.0.1",
 				}
@@ -277,7 +277,7 @@ func TestFileObserver_Update(t *testing.T) {
 				return fileObserver, tmpFileName
 			},
 			event: AuditEvent{
-				Timestamp: 1234567890,
+				Ts:        1234567890,
 				Metrics:   []string{"metric1", "metric2"},
 				IPAddress: "127.0.0.1",
 			},
@@ -336,7 +336,7 @@ func TestHTTPObserver_Update(t *testing.T) {
 				}
 			},
 			event: AuditEvent{
-				Timestamp: 1234567890,
+				Ts:        1234567890,
 				Metrics:   []string{"metric1", "metric2"},
 				IPAddress: "127.0.0.1",
 			},

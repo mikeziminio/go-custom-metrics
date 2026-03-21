@@ -65,6 +65,13 @@ var (
 	MetricCPUUtilization = "CPUutilization"
 )
 
+// Agent is the main struct for the metrics collection and transmission.
+//
+// It collects system metrics (CPU, memory, Go runtime statistics) at regular
+// intervals and sends them to a configured metrics server using HTTP requests.
+//
+// The Agent supports concurrent metric transmission with rate limiting,
+// automatic retries with configurable timeouts, and optional GZIP compression.
 type Agent struct {
 	pollInterval   time.Duration
 	reportInterval time.Duration
@@ -80,6 +87,10 @@ type Agent struct {
 	logger         *zap.Logger
 }
 
+// Retrier interface defines the retry mechanism contract.
+//
+// Implementations of this interface can classify errors and determine
+// whether an operation should be retried based on the error type.
 type Retrier interface {
 	Retry(f func() error) error
 }
@@ -90,8 +101,11 @@ var defaultRetryTimeouts = []time.Duration{
 	5 * time.Second,
 }
 
-// Ограничивает количество ретраев отправки метрик
-// в зависимости от интервала отправки
+// retryTimeouts limits the number of retras based on the report interval.
+//
+// It takes a slice of timeout durations and the report interval, then returns
+// a truncated slice that ensures the total timeout time doesn't exceed the
+// report interval. This prevents excessive retras when sending metrics.
 func retryTimeouts(rts []time.Duration, reportInterval time.Duration) []time.Duration {
 	var currentInterval time.Duration
 	for i, timeout := range rts {
@@ -103,6 +117,19 @@ func retryTimeouts(rts []time.Duration, reportInterval time.Duration) []time.Dur
 	return rts
 }
 
+// New creates a new Agent instance with the specified configuration.
+//
+// Parameters:
+//   - baseURL: The base URL of the metrics server
+//   - pollInterval: How often to collect metrics from the system
+//   - reportInterval: How often to send collected metrics to the server
+//   - useCompress: Whether to use GZIP compression for HTTP requests
+//   - hashKey: Key for hashing the request body (empty for no hashing)
+//   - rateLimit: Maximum number of concurrent HTTP requests
+//   - timeout: HTTP request timeout duration
+//   - logger: Logger instance for logging agent operations
+//
+// Returns a new *Agent ready to have Run() called.
 func New(
 	baseURL string,
 	pollInterval time.Duration,
@@ -135,6 +162,12 @@ func New(
 	}
 }
 
+// randFloat64 generates a cryptographically secure random float64 in [0.0, 1.0).
+//
+// It reads 8 random bytes from crypto/rand and converts them to a float64.
+// If crypto/rand fails, it falls back to math/rand/v2 (non-cryptographic).
+//
+// Returns a random float64 value between 0.0 (inclusive) and 1.0 (exclusive).
 func randFloat64() float64 {
 	b := make([]byte, 8) //nolint:mnd // 8 bytes for uint64
 	_, err := rand.Read(b)
@@ -151,12 +184,25 @@ func randFloat64() float64 {
 	return float64(val) / (float64(math.MaxUint64) + 1)
 }
 
+// Collect gathers current system metrics and stores them in the Agent's memory.
+//
+// It collects basic metrics (memory stats, runtime statistics) and extra metrics
+// (system memory, CPU utilization) then stores them in memory for later transmission.
+//
+// Returns an error if fetching extra metrics (CPU/memory) fails, but basic
+// metrics collection is always attempted.
 func (a *Agent) Collect() error {
 	a.collectBasic()
 	err := a.collectExtra()
 	return err
 }
 
+// collectBasic collects standard Go runtime memory and GC metrics.
+//
+// It reads Go runtime memory statistics using runtime.ReadMemStats and stores
+// them in the Agent's gauges map with the metric name as the key.
+//
+// This method is not thread-safe and must be called with the mutex locked.
 func (a *Agent) collectBasic() {
 	var ms runtime.MemStats
 	runtime.ReadMemStats(&ms)
@@ -194,6 +240,12 @@ func (a *Agent) collectBasic() {
 	a.counters[MetricPollCount]++
 }
 
+// collectExtra collects system-level metrics (memory, CPU) using gopsutil.
+//
+// It fetches virtual memory statistics and CPU utilization percentages,
+// storing them in the Agent's gauges map.
+//
+// Returns an error if either memory or CPU metrics cannot be retrieved.
 func (a *Agent) collectExtra() error {
 	vm, err := mem.VirtualMemory()
 	if err != nil {
@@ -214,6 +266,14 @@ func (a *Agent) collectExtra() error {
 	return nil
 }
 
+// SendByBatch sends a batch of metrics to the configured server.
+//
+// Parameters:
+//   - ctx: Context for the HTTP request (for cancellation/timeout)
+//   - metrics: Slice of metrics to send
+//   - useCompress: Whether to use GZIP compression for this request
+//
+// Returns an error if the HTTP request fails after all retry attempts.
 func (a *Agent) SendByBatch(ctx context.Context, metrics []model.Metric, useCompress bool) error {
 	a.logger.Info("send metric start", zap.String("metric", fmt.Sprintf("%v", len(metrics))))
 
@@ -270,6 +330,12 @@ func (a *Agent) SendByBatch(ctx context.Context, metrics []model.Metric, useComp
 	return nil
 }
 
+// SendAll sends all currently stored metrics to the server.
+//
+// It converts the internal maps of gauges and counters into a slice of
+// model.Metric structs and sends them using SendByBatch.
+//
+// Logs errors if sending fails but does not return an error.
 func (a *Agent) SendAll(ctx context.Context, useCompress bool) {
 	metrics := make([]model.Metric, 0, len(a.gauges)+len(a.counters))
 	for name, val := range a.gauges {
@@ -293,6 +359,17 @@ func (a *Agent) SendAll(ctx context.Context, useCompress bool) {
 	}
 }
 
+// Run starts the agent's main collection and transmission loop.
+//
+// It runs two concurrent goroutines:
+//  1. Collects metrics at the specified pollInterval
+//  2. Sends metrics to the server at the specified reportInterval
+//
+// The function blocks until it receives SIGINT or SIGTERM signals, then
+// gracefully stops both goroutines before returning.
+//
+// Parameters:
+//   - ctx: Context for the agent's operation
 func (a *Agent) Run(ctx context.Context) {
 	ctx, cancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()

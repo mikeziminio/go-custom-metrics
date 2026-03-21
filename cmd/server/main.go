@@ -15,6 +15,23 @@ import (
 	"github.com/mikeziminio/go-custom-metrics/internal/server/config"
 )
 
+// Package main is the entry point for the custom metrics server application.
+//
+// The server provides a REST API for storing and retrieving custom metrics.
+// It supports both in-memory storage and PostgreSQL database Backends.
+//
+// Key features include:
+//   - HTTP API for metric updates and retrieval
+//   - Compression middleware for efficient data transfer
+//   - Hash-based request validation
+//   - Audit logging for tracking metric changes
+//   - Graceful shutdown on SIGINT/SIGTERM signals
+//
+// main is the entry point for the server application.
+// It initializes configuration, logger, storage, and server components then starts
+// the HTTP server and background synchronization tasks.
+//
+// The server runs until it receives SIGINT or SIGTERM signals.
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

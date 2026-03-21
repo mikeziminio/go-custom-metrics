@@ -1,3 +1,7 @@
+// Package server provides the HTTP API server for the metrics service.
+//
+// It implements the main APIServer struct with routes for metric operations.
+// It supports both in-memory and database-backed storage through interfaces.
 package server
 
 import (
@@ -18,16 +22,30 @@ import (
 	"github.com/mikeziminio/go-custom-metrics/internal/model"
 )
 
+// Storage interface defines the contract for metric storage implementations.
+//
+// Implementations must support update, retrieval, and listing operations
+// for metrics with proper concurrency safety.
 type Storage interface {
+	// Update updates a single metric and returns the updated value.
 	Update(ctx context.Context, m model.Metric) (*model.Metric, error)
+	// Updates updates multiple metrics in bulk.
 	Updates(ctx context.Context, metrics []model.Metric) error
+	// List returns all metrics as a map.
 	List(ctx context.Context) (map[string]model.Metric, error)
+	// Get retrieves a specific metric by type and name.
 	Get(ctx context.Context, metricType model.MetricType, metricName string) (*model.Metric, error)
+	// Ping checks if the storage is reachable.
 	Ping(ctx context.Context) error
 }
 
+// Syncer interface defines methods for file synchronization.
+//
+// Implementations should handle persistence of metrics to file.
 type Syncer interface {
+	// Sync saves current metrics state to file.
 	Sync(ctx context.Context) error
+	// Restore loads metrics state from file.
 	Restore(ctx context.Context) error
 }
 
@@ -38,6 +56,9 @@ type Syncer interface {
 // Соответственно сейчас так и реализовано - без слоев service и repository, их использование планируется
 // в следующих спринтах.
 
+// APIServer represents the main HTTP server for the metrics API.
+//
+// It manages routes, request processing, and background synchronization tasks.
 type APIServer struct {
 	address       string
 	storeInterval time.Duration
@@ -50,6 +71,18 @@ type APIServer struct {
 	pprofAddress  string
 }
 
+// New creates a new APIServer instance.
+//
+// Parameters:
+//   - address: HTTP server address (host:port)
+//   - storeInterval: Interval for file synchronization (0 to disable)
+//   - hashKey: Key for request body hashing (nil to disable)
+//   - storage: Storage implementation (memstorage or dbstorage)
+//   - logger: Logger instance
+//   - auditLogger: Audit logger instance (nil to disable auditing)
+//   - pprofAddress: Address for pprof profiling server (empty to disable)
+//
+// Returns a new APIServer ready for route registration and startup.
 func New(
 	address string,
 	storeInterval time.Duration,
@@ -83,6 +116,16 @@ func New(
 	return a
 }
 
+// RegisterRoutes registers all HTTP routes for the metrics API.
+//
+// Routes:
+//   - GET /                    - List all metrics
+//   - GET /ping                - Health check endpoint
+//   - POST /value              - Get metric by JSON body
+//   - GET /value/{type}/{name} - Get metric by URL params
+//   - POST /update             - Update single metric from JSON body
+//   - POST /update/{type}/{name}/{value} - Update metric by URL params
+//   - POST /updates            - Update multiple metrics from JSON body
 func (a *APIServer) RegisterRoutes() {
 	r := a.router
 
@@ -101,6 +144,15 @@ func (a *APIServer) RegisterRoutes() {
 	r.Post("/updates", a.Updates)
 }
 
+// Run starts the HTTP server and background tasks.
+//
+// It starts:
+//   - HTTP server on configured address
+//   - pprof server (if configured)
+//   - File sync goroutine (if storeInterval > 0)
+//
+// The function blocks until SIGINT or SIGTERM is received, then gracefully
+// shuts down the server.
 func (a *APIServer) Run(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()

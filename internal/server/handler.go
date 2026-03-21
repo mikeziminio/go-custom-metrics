@@ -16,6 +16,9 @@ import (
 	"github.com/mikeziminio/go-custom-metrics/internal/model"
 )
 
+// Update handles HTTP POST /value request to update a single metric.
+// It reads the metric from request body, updates it in storage,
+// and logs an audit event if enabled.
 func (a *APIServer) Update(res http.ResponseWriter, req *http.Request) {
 	body, err := io.ReadAll(req.Body)
 	if err != nil {
@@ -55,7 +58,7 @@ func (a *APIServer) Update(res http.ResponseWriter, req *http.Request) {
 	if a.auditLogger != nil {
 		ipAddress := extractIPAddress(req)
 		event := AuditEvent{
-			Timestamp: time.Now().Unix(),
+			Ts:        time.Now().Unix(),
 			Metrics:   []string{fmt.Sprintf("%s:%s", data.MType, data.ID)},
 			IPAddress: ipAddress,
 		}
@@ -78,6 +81,9 @@ func (a *APIServer) Update(res http.ResponseWriter, req *http.Request) {
 	}
 }
 
+// Updates handles HTTP POST /updates request to update multiple metrics.
+// It reads metrics from request body and updates them in storage in bulk,
+// then logs an audit event if enabled.
 func (a *APIServer) Updates(res http.ResponseWriter, req *http.Request) {
 	body, err := io.ReadAll(req.Body)
 	if err != nil {
@@ -126,7 +132,7 @@ func (a *APIServer) Updates(res http.ResponseWriter, req *http.Request) {
 			metricNames = append(metricNames, fmt.Sprintf("%s:%s", d.MType, d.ID))
 		}
 		event := AuditEvent{
-			Timestamp: time.Now().Unix(),
+			Ts:        time.Now().Unix(),
 			Metrics:   metricNames,
 			IPAddress: ipAddress,
 		}
@@ -138,6 +144,9 @@ func (a *APIServer) Updates(res http.ResponseWriter, req *http.Request) {
 	res.WriteHeader(http.StatusOK)
 }
 
+// UpdateByParams handles HTTP POST /update/{metricType}/{metricName}/{value} request.
+// It extracts metric parameters from URL and updates the metric in storage,
+// then logs an audit event if enabled.
 func (a *APIServer) UpdateByParams(res http.ResponseWriter, req *http.Request) {
 	mt := chi.URLParam(req, "metricType")
 	metricType, err := model.NewMetricTypeFromString(mt)
@@ -189,7 +198,7 @@ func (a *APIServer) UpdateByParams(res http.ResponseWriter, req *http.Request) {
 	if a.auditLogger != nil {
 		ipAddress := extractIPAddress(req)
 		event := AuditEvent{
-			Timestamp: time.Now().Unix(),
+			Ts:        time.Now().Unix(),
 			Metrics:   []string{fmt.Sprintf("%s:%s", metricType, metricName)},
 			IPAddress: ipAddress,
 		}
@@ -201,6 +210,8 @@ func (a *APIServer) UpdateByParams(res http.ResponseWriter, req *http.Request) {
 	res.WriteHeader(http.StatusOK)
 }
 
+// Get handles HTTP POST /value request to retrieve a single metric.
+// It reads metric type and name from request body and returns the value.
 func (a *APIServer) Get(res http.ResponseWriter, req *http.Request) {
 	body, err := io.ReadAll(req.Body)
 	if err != nil {
@@ -213,8 +224,7 @@ func (a *APIServer) Get(res http.ResponseWriter, req *http.Request) {
 	err = json.Unmarshal(body, &data)
 	if err != nil {
 		http.Error(res, fmt.Sprintf("failed to validate request body: %v", err),
-			http.StatusBadRequest,
-		)
+			http.StatusBadRequest)
 		return
 	}
 
@@ -244,6 +254,8 @@ func (a *APIServer) Get(res http.ResponseWriter, req *http.Request) {
 	}
 }
 
+// GetByParams handles HTTP GET /value/{metricType}/{metricName} request.
+// It extracts metric parameters from URL and returns the value as plain text.
 func (a *APIServer) GetByParams(res http.ResponseWriter, req *http.Request) {
 	mt := chi.URLParam(req, "metricType")
 	metricType, err := model.NewMetricTypeFromString(mt)
@@ -282,6 +294,8 @@ func (a *APIServer) GetByParams(res http.ResponseWriter, req *http.Request) {
 	}
 }
 
+// List handles HTTP GET / request to list all metrics.
+// It returns metrics in HTML format with id and value.
 func (a *APIServer) List(res http.ResponseWriter, req *http.Request) {
 	var b bytes.Buffer
 	metrics, err := a.storage.List(req.Context())
@@ -308,6 +322,8 @@ func (a *APIServer) List(res http.ResponseWriter, req *http.Request) {
 	}
 }
 
+// Ping handles HTTP GET /ping health check request.
+// It returns status 200 if storage is reachable.
 func (a *APIServer) Ping(res http.ResponseWriter, req *http.Request) {
 	err := a.storage.Ping(req.Context())
 	if err != nil {

@@ -8,6 +8,10 @@ import (
 )
 
 func New(level string) (*zap.Logger, error) {
+	if level == "" {
+		return nil, fmt.Errorf("failed to parse %s as log level: level cannot be empty", level)
+	}
+
 	encoderCfg := zap.NewProductionEncoderConfig()
 	encoderCfg.TimeKey = "timestamp"
 	encoderCfg.EncodeTime = zapcore.ISO8601TimeEncoder
