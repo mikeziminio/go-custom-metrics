@@ -1,0 +1,123 @@
+{
+    "components": {
+        "schemas": {
+            "model.Metric": {
+                "properties": {
+                    "delta": {
+                        "type": "integer"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "$ref": "#/components/schemas/model.MetricType"
+                    },
+                    "value": {
+                        "type": "number"
+                    }
+                },
+                "type": "object"
+            },
+            "model.MetricType": {
+                "enum": [
+                    "counter",
+                    "gauge"
+                ],
+                "type": "string",
+                "x-enum-varnames": [
+                    "Counter",
+                    "Gauge"
+                ]
+            },
+            "server.updateReqSchema": {
+                "properties": {
+                    "delta": {
+                        "type": "integer"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "$ref": "#/components/schemas/model.MetricType"
+                    },
+                    "value": {
+                        "type": "number"
+                    }
+                },
+                "type": "object"
+            }
+        }
+    },
+    "info": {
+        "title": "",
+        "version": ""
+    },
+    "externalDocs": {
+        "description": "",
+        "url": ""
+    },
+    "paths": {
+        "/update": {
+            "post": {
+                "operationId": "updateMetric",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "type": "object"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/server.updateReqSchema",
+                                        "summary": "metric",
+                                        "description": "Данные метрики"
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    "description": "Данные метрики",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/model.Metric"
+                                }
+                            }
+                        },
+                        "description": "Метрика обновлена"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "description": "Некорректный тип метрики или неверный формат данных"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "description": "Внутренняя ошибка сервера"
+                    }
+                },
+                "summary": "Обновление метрики",
+                "tags": [
+                    "Metrics"
+                ]
+            }
+        }
+    },
+    "openapi": "3.1.0"
+}

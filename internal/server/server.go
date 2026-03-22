@@ -7,6 +7,7 @@ package server
 import (
 	"context"
 	"net/http"
+
 	// #nosec G108
 	// Profiling endpoint is intentionally exposed on /debug/pprof
 	_ "net/http/pprof"

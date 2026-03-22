@@ -122,3 +122,14 @@ tasks:
     cmds:
       - "godoc -http=:6060 & sleep 2"
       - "open http://localhost:6060/pkg/github.com/mikeziminio/go-custom-metrics/?m=all"
+
+  swag-prepare:
+    desc: ...
+    cmds:
+      - "GOBIN=$BIN go install github.com/swaggo/swag/v2/cmd/swag@latest"
+
+  swag:
+     desc: Format swagger comments and update swagger.yaml
+     cmds:
+      - "$BIN/swag fmt  -d './internal/server,./internal/model' -g 'handler.go'"
+      - "$BIN/swag init --v3.1 -d './internal/server,./internal/model' -g 'handler.go' -o ./swagger/ -ot 'json,yaml'"

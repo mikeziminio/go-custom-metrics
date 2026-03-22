@@ -24,6 +24,17 @@ import (
 //
 // It reads the metric from request body, updates it in storage,
 // and logs an audit event if enabled.
+//
+//	@Tags		Metrics
+//	@Summary	Обновление метрики
+//	@ID			updateMetric
+//	@Accept		json
+//	@Produce	json
+//	@Param		metric	body		updateReqSchema	true	"Данные метрики"
+//	@Success	200		{object}	model.Metric	"Метрика обновлена"
+//	@Failure	400		{string}	string			"Некорректный тип метрики или неверный формат данных"
+//	@Failure	500		{string}	string			"Внутренняя ошибка сервера"
+//	@Router		/update [post]
 func (a *APIServer) Update(res http.ResponseWriter, req *http.Request) {
 	body, err := io.ReadAll(req.Body)
 	if err != nil {
