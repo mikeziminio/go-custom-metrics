@@ -28,8 +28,6 @@ import (
 //	@Tags		Metrics
 //	@Summary	Обновление метрики
 //	@ID			updateMetric
-//	@Accept		json
-//	@Produce	json
 //	@Param		metric	body		updateReqSchema	true	"Данные метрики"
 //	@Success	200		{object}	model.Metric	"Метрика обновлена"
 //	@Failure	400		{string}	string			"Некорректный тип метрики или неверный формат данных"
@@ -105,6 +103,15 @@ func (a *APIServer) Update(res http.ResponseWriter, req *http.Request) {
 //
 // It reads metrics from request body and updates them in storage in bulk,
 // then logs an audit event if enabled.
+//
+//	@Tags		Metrics
+//	@Summary	Массовое обновление метрик
+//	@ID			updateMetrics
+//	@Param		metrics	body		updatesReqSchema	true	"Список метрик"
+//	@Success	200		{string}	string				"OK"
+//	@Failure	400		{string}	string				"Некорректный тип метрики или неверный формат данных"
+//	@Failure	500		{string}	string				"Внутренняя ошибка сервера"
+//	@Router		/updates [post]
 func (a *APIServer) Updates(res http.ResponseWriter, req *http.Request) {
 	body, err := io.ReadAll(req.Body)
 	if err != nil {
@@ -173,6 +180,17 @@ func (a *APIServer) Updates(res http.ResponseWriter, req *http.Request) {
 //
 // It extracts metric parameters from URL and updates the metric in storage,
 // then logs an audit event if enabled.
+//
+//	@Tags		Metrics
+//	@Summary	Обновление метрики по параметрам URL
+//	@ID			updateMetricByParams
+//	@Param		metricType	path		string	true	"Тип метрики (counter или gauge)"
+//	@Param		metricName	path		string	true	"Имя метрики"
+//	@Param		value		path		string	true	"Значение метрики"
+//	@Success	200			{string}	string	"OK"
+//	@Failure	400			{string}	string	"Некорректный тип метрики или неверный формат значения"
+//	@Failure	500			{string}	string	"Внутренняя ошибка сервера"
+//	@Router		/update/{metricType}/{metricName}/{value} [post]
 func (a *APIServer) UpdateByParams(res http.ResponseWriter, req *http.Request) {
 	mt := chi.URLParam(req, "metricType")
 	metricType, err := model.NewMetricTypeFromString(mt)
@@ -243,6 +261,15 @@ func (a *APIServer) UpdateByParams(res http.ResponseWriter, req *http.Request) {
 //   - req: HTTP request containing metric type and name in JSON body
 //
 // It reads metric type and name from request body and returns the value.
+//
+//	@Tags		Metrics
+//	@Summary	Получение метрики
+//	@ID			getMetric
+//	@Param		metric	body		getReqSchema	true	"Идентификатор метрики"
+//	@Success	200		{object}	model.Metric	"Метрика найдена"
+//	@Failure	404		{string}	string			"Метрика не найдена"
+//	@Failure	500		{string}	string			"Внутренняя ошибка сервера"
+//	@Router		/value [post]
 func (a *APIServer) Get(res http.ResponseWriter, req *http.Request) {
 	body, err := io.ReadAll(req.Body)
 	if err != nil {
@@ -292,6 +319,17 @@ func (a *APIServer) Get(res http.ResponseWriter, req *http.Request) {
 //   - req: HTTP request with metric parameters in URL path
 //
 // It extracts metric parameters from URL and returns the value as plain text.
+//
+//	@Tags		Metrics
+//	@Summary	Получение метрики по параметрам URL
+//	@ID			getMetricByParams
+//	@Param		metricType	path		string	true	"Тип метрики (counter или gauge)"
+//	@Param		metricName	path		string	true	"Имя метрики"
+//	@Success	200			{string}	string	"Значение метрики"
+//	@Failure	404			{string}	string	"Метрика не найдена"
+//	@Failure	400			{string}	string	"Некорректный тип метрики"
+//	@Failure	500			{string}	string	"Внутренняя ошибка сервера"
+//	@Router		/value/{metricType}/{metricName} [get]
 func (a *APIServer) GetByParams(res http.ResponseWriter, req *http.Request) {
 	mt := chi.URLParam(req, "metricType")
 	metricType, err := model.NewMetricTypeFromString(mt)
@@ -336,7 +374,14 @@ func (a *APIServer) GetByParams(res http.ResponseWriter, req *http.Request) {
 //   - res: HTTP response writer
 //   - req: HTTP request
 //
-// It returns metrics in HTML format with id and value.
+// It returns metrics in plain text format with id and value.
+//
+//	@Tags		Metrics
+//	@Summary	Список всех метрик
+//	@ID			listMetrics
+//	@Success	200	{string}	string	"Список метрик в HTML формате"
+//	@Failure	500	{string}	string	"Внутренняя ошибка сервера"
+//	@Router		/ [get]
 func (a *APIServer) List(res http.ResponseWriter, req *http.Request) {
 	var b bytes.Buffer
 	metrics, err := a.storage.List(req.Context())
@@ -370,6 +415,13 @@ func (a *APIServer) List(res http.ResponseWriter, req *http.Request) {
 //   - req: HTTP request
 //
 // It returns status 200 if storage is reachable.
+//
+//	@Tags		Info
+//	@Summary	Запрос состояния сервиса
+//	@ID			infoPing
+//	@Success	200	{string}	string	"OK"
+//	@Failure	500	{string}	string	"Внутренняя ошибка"
+//	@Router		/ping [get]
 func (a *APIServer) Ping(res http.ResponseWriter, req *http.Request) {
 	err := a.storage.Ping(req.Context())
 	if err != nil {
