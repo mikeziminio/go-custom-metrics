@@ -65,7 +65,7 @@ func DecompressWithGZIP(r io.Reader) io.Reader {
 		}
 		defer gr.Close() //nolint:errcheck // ignore close error
 
-		_, err = io.Copy(pw, gr)
+		_, err = io.Copy(pw, io.LimitReader(gr, 100<<20)) // Limit decompression to 100MB to prevent DoS
 		if err != nil {
 			pw.CloseWithError(fmt.Errorf("failed to copy: %w", err))
 			return

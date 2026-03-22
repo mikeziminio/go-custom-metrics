@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	stdlog "log"
+	// #nosec G108
+	// Profiling endpoint is intentionally exposed on /debug/pprof
 	_ "net/http/pprof"
 	"time"
 

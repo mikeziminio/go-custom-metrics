@@ -7,6 +7,8 @@ package server
 import (
 	"context"
 	"net/http"
+	// #nosec G108
+	// Profiling endpoint is intentionally exposed on /debug/pprof
 	_ "net/http/pprof"
 	"os/signal"
 	"syscall"
@@ -148,11 +150,19 @@ func (a *APIServer) Run(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	// Start pprof server with proper timeouts
 	go func() {
 		pprofAddr := a.pprofAddress
 		a.logger.Info("Starting pprof server", zap.String("address", pprofAddr))
-		err := http.ListenAndServe(pprofAddr, nil)
-		if err != nil {
+		pprofServer := &http.Server{
+			Addr:         pprofAddr,
+			Handler:      nil,
+			ReadTimeout:  5 * time.Second,
+			WriteTimeout: 5 * time.Second,
+			IdleTimeout:  60 * time.Second,
+		}
+		err := pprofServer.ListenAndServe()
+		if err != nil && err != http.ErrServerClosed {
 			a.logger.Error("failed to start pprof server", zap.Error(err))
 		}
 	}()

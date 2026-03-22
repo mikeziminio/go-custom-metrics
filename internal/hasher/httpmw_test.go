@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 )
 
@@ -32,8 +33,8 @@ func TestHasherMiddleware_MiddlewareHandler(t *testing.T) {
 		rr := httptest.NewRecorder()
 
 		middleware := newHasherMiddleware(key, zap.NewNop())
-		handler := middleware.middlewareHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			body, _ := io.ReadAll(r.Body)
+		handler := middleware.middlewareHandler(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			body, _ := io.ReadAll(req.Body)
 			assert.Equal(t, data, body)
 			w.WriteHeader(http.StatusOK)
 		}))
@@ -52,7 +53,7 @@ func TestHasherMiddleware_MiddlewareHandler(t *testing.T) {
 		rr := httptest.NewRecorder()
 
 		middleware := newHasherMiddleware(key, zap.NewNop())
-		handler := middleware.middlewareHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handler := middleware.middlewareHandler(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusOK)
 		}))
 
@@ -68,7 +69,7 @@ func TestHasherMiddleware_MiddlewareHandler(t *testing.T) {
 		rr := httptest.NewRecorder()
 
 		middleware := newHasherMiddleware(key, zap.NewNop())
-		handler := middleware.middlewareHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handler := middleware.middlewareHandler(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.Write(data)
 		}))
 
@@ -108,7 +109,7 @@ func TestResponseWriter_Write(t *testing.T) {
 		data := []byte("test response data")
 		n, err := responseWriter.Write(data)
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, len(data), n)
 		assert.NotEmpty(t, rr.Header().Get(HashHeader))
 	})

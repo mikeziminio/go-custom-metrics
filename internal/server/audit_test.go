@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -105,7 +106,7 @@ func TestAuditLogger_Notify(t *testing.T) {
 				return auditLogger, []*MockObserver{mockObserver1, mockObserver2}
 			},
 			event: AuditEvent{
-				Ts:        1234567890,
+				Timestamp: 1234567890,
 				Metrics:   []string{"metric1", "metric2"},
 				IPAddress: "127.0.0.1",
 			},
@@ -155,7 +156,7 @@ func TestAuditLogger_Log(t *testing.T) {
 				auditLogger.Register(mockObserver)
 
 				event := AuditEvent{
-					Ts:        1234567890,
+					Timestamp: 1234567890,
 					Metrics:   []string{"metric1", "metric2"},
 					IPAddress: "127.0.0.1",
 				}
@@ -277,7 +278,7 @@ func TestFileObserver_Update(t *testing.T) {
 				return fileObserver, tmpFileName
 			},
 			event: AuditEvent{
-				Ts:        1234567890,
+				Timestamp: 1234567890,
 				Metrics:   []string{"metric1", "metric2"},
 				IPAddress: "127.0.0.1",
 			},
@@ -289,8 +290,14 @@ func TestFileObserver_Update(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			fileObserver, tmpFileName := tc.setup()
 
+			// Use filepath.Abs to prevent path traversal
+			absPath, err := filepath.Abs(tmpFileName)
+			if err != nil {
+				t.Fatal(err)
+			}
+
 			// Open file for the observer
-			file, err := os.OpenFile(tmpFileName, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+			file, err := os.OpenFile(absPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 			assert.NoError(t, err)
 			defer file.Close()
 			defer os.Remove(tmpFileName) // Move defer here to clean up after test
@@ -336,7 +343,7 @@ func TestHTTPObserver_Update(t *testing.T) {
 				}
 			},
 			event: AuditEvent{
-				Ts:        1234567890,
+				Timestamp: 1234567890,
 				Metrics:   []string{"metric1", "metric2"},
 				IPAddress: "127.0.0.1",
 			},

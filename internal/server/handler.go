@@ -63,7 +63,7 @@ func (a *APIServer) Update(res http.ResponseWriter, req *http.Request) {
 	if a.auditLogger != nil {
 		ipAddress := extractIPAddress(req)
 		event := AuditEvent{
-			Ts:        time.Now().Unix(),
+			Timestamp: time.Now().Unix(),
 			Metrics:   []string{fmt.Sprintf("%s:%s", data.MType, data.ID)},
 			IPAddress: ipAddress,
 		}
@@ -142,7 +142,7 @@ func (a *APIServer) Updates(res http.ResponseWriter, req *http.Request) {
 			metricNames = append(metricNames, fmt.Sprintf("%s:%s", d.MType, d.ID))
 		}
 		event := AuditEvent{
-			Ts:        time.Now().Unix(),
+			Timestamp: time.Now().Unix(),
 			Metrics:   metricNames,
 			IPAddress: ipAddress,
 		}
@@ -213,7 +213,7 @@ func (a *APIServer) UpdateByParams(res http.ResponseWriter, req *http.Request) {
 	if a.auditLogger != nil {
 		ipAddress := extractIPAddress(req)
 		event := AuditEvent{
-			Ts:        time.Now().Unix(),
+			Timestamp: time.Now().Unix(),
 			Metrics:   []string{fmt.Sprintf("%s:%s", metricType, metricName)},
 			IPAddress: ipAddress,
 		}

@@ -20,7 +20,7 @@ import (
 // It contains information about the metric update: timestamp, affected metrics,
 // and the IP address of the client.
 type AuditEvent struct {
-	Ts        int64    `json:"ts"`
+	Timestamp int64    `json:"ts"`
 	Metrics   []string `json:"metrics"`
 	IPAddress string   `json:"ip_address"`
 }
@@ -73,12 +73,12 @@ type AuditLogger struct {
 func NewAuditLogger(logger *zap.Logger, config AuditConfig) (*AuditLogger, error) {
 	al := &AuditLogger{
 		logger: logger,
-		client: &http.Client{Timeout: 5 * time.Second},
+		client: &http.Client{Timeout: 5 * time.Second}, // #nolint:mnd
 		url:    config.AuditURL,
 	}
 
 	if config.AuditFile != "" {
-		file, err := os.OpenFile(config.AuditFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+		file, err := os.OpenFile(config.AuditFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 		if err != nil {
 			return nil, fmt.Errorf("failed to open audit file %s: %w", config.AuditFile, err)
 		}
@@ -162,7 +162,7 @@ func (al *AuditLogger) Notify(event AuditEvent) error {
 // Parameters:
 //   - ctx: Context for the operation (currently unused)
 //   - event: AuditEvent to log
-func (al *AuditLogger) Log(ctx context.Context, event AuditEvent) error {
+func (al *AuditLogger) Log(_ context.Context, event AuditEvent) error { // #nolint:revive
 	return al.Notify(event)
 }
 

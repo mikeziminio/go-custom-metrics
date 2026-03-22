@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/docker/go-connections/nat"
 	"testing"
 	"time"
 
@@ -26,9 +25,9 @@ func testPostgresContainer(t *testing.T, ctx context.Context) *postgres.Postgres
 		postgres.WithUsername("testuser"),
 		postgres.WithPassword("testpassword"),
 		testcontainers.WithWaitStrategy(
-			wait.ForSQL(nat.Port("5432/tcp"), "pgx", func(host string, port nat.Port) string {
-				return fmt.Sprintf("postgresql://testuser:testpassword@%s:%d/testdb?sslmode=disable", host, port.Int())
-			}).WithStartupTimeout(30*time.Second),
+			wait.ForSQL("tcp", func(host string, port int) string {
+				return fmt.Sprintf("postgresql://testuser:testpassword@%s:%d/testdb?sslmode=disable", host, port)
+			}, "pgx").WithStartupTimeout(30*time.Second),
 		),
 	)
 	require.NoError(t, err)

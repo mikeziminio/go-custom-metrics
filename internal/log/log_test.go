@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -68,7 +69,7 @@ func TestNew(t *testing.T) {
 				assert.Error(t, err)
 				assert.Nil(t, logger)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.NotNil(t, logger)
 			}
 		})
@@ -82,7 +83,7 @@ func TestNewLevelConfiguration(t *testing.T) {
 		t.Parallel()
 
 		logger, err := New("info")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, logger)
 
 		core := logger.Core()

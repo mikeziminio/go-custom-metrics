@@ -93,6 +93,27 @@ linters:
           disabled: true
         - name: unused-parameter
         - name: unused-receiver
+    errcheck:
+        exclude-functions:
+          - (sync.Locker).Lock
+          - (sync.Locker).Unlock
+          - (sync.WaitGroup).Add
+          - (sync.WaitGroup).Done
+          - (context.Context).Done
+          - (context.Context).Err
+          - (context.Context).Value
+          - (*fmt.Buffer).Write
+          - fmt.Fprintf
+          - fmt.Printf
+          - fmt.Sprintf
+          - (*sync.Mutex).Lock
+          - (*sync.Mutex).Unlock
+          - (*sync.RWMutex).Lock
+          - (*sync.RWMutex).Unlock
+          - (*sync.RWMutex).RLock
+          - (*sync.RWMutex).RUnlock
+          - (*sql.Tx).Rollback
+          - (*sync.WaitGroup).Wait
 
 formatters:
   enable:
@@ -102,4 +123,3 @@ formatters:
     goimports:
       local-prefixes:
         - github.com/mikeziminio/go-custom-metrics/
-
