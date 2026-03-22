@@ -67,9 +67,14 @@ tasks:
       - "go test -v -race ./..."
 
   test-load:
-    desc: Run k6 load tests
+    desc: Run k6 load tests. You should run server-with-postgres before
     cmds:
       - "k6 run test-load.js"
+
+  pprof-heap:
+    desc: Save heap profile
+    cmds:
+      - "curl -s http://localhost:7070/debug/pprof/heap -o ./profile/{{.FILENAME}}.pprof"
 
   fmt:
     desc: Format and fix imports
@@ -124,7 +129,7 @@ tasks:
       - "open http://localhost:6060/pkg/github.com/mikeziminio/go-custom-metrics/?m=all"
 
   swag-prepare:
-    desc: ...
+    desc: Install latest swag to bin dir
     cmds:
       - "GOBIN=$BIN go install github.com/swaggo/swag/v2/cmd/swag@latest"
 

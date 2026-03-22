@@ -33,7 +33,7 @@ type Config struct {
 
 var (
 	DefaultAddress         = "localhost:8080"
-	DefaultPprofAddress    = "localhost:6060"
+	DefaultPprofAddress    = "localhost:7070"
 	DefaultStoreInterval   = 300.0
 	DefaultFileStoragePath = "./data.json"
 	DefaultRestore         = false

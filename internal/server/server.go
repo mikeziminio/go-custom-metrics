@@ -157,7 +157,7 @@ func (a *APIServer) Run(ctx context.Context) {
 		a.logger.Info("Starting pprof server", zap.String("address", pprofAddr))
 		pprofServer := &http.Server{
 			Addr:         pprofAddr,
-			Handler:      nil,
+			Handler:      nil, // DefaultServeMux от pprof
 			ReadTimeout:  5 * time.Second,
 			WriteTimeout: 5 * time.Second,
 			IdleTimeout:  60 * time.Second,
