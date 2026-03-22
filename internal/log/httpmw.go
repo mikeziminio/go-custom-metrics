@@ -8,6 +8,12 @@ import (
 	"go.uber.org/zap"
 )
 
+// MiddlewareHandler creates an HTTP middleware that logs incoming requests.
+//
+// Parameters:
+//   - logger: Logger instance for logging request details
+//
+// Returns an HTTP middleware handler that logs request start/complete events.
 func MiddlewareHandler(logger *zap.Logger) func(http.Handler) http.Handler {
 	lmw := newLoggerMiddleware(logger)
 	return lmw.middlewareHandler
@@ -39,6 +45,12 @@ func newLoggerMiddleware(logger *zap.Logger) *loggerMiddleware {
 	}
 }
 
+// middlewareHandler wraps the next handler with request logging logic.
+//
+// Parameters:
+//   - next: The next HTTP handler in the chain
+//
+// Returns an http.Handler with logging instrumentation.
 func (m *loggerMiddleware) middlewareHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()

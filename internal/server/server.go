@@ -117,15 +117,6 @@ func New(
 }
 
 // RegisterRoutes registers all HTTP routes for the metrics API.
-//
-// Routes:
-//   - GET /                    - List all metrics
-//   - GET /ping                - Health check endpoint
-//   - POST /value              - Get metric by JSON body
-//   - GET /value/{type}/{name} - Get metric by URL params
-//   - POST /update             - Update single metric from JSON body
-//   - POST /update/{type}/{name}/{value} - Update metric by URL params
-//   - POST /updates            - Update multiple metrics from JSON body
 func (a *APIServer) RegisterRoutes() {
 	r := a.router
 

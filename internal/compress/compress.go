@@ -13,13 +13,14 @@ import (
 
 // CompressWithGZIP creates a reader that provides GZIP-compressed data.
 //
+// Parameters:
+//   - r: Source data reader
+//
 // It reads data from the input reader, compresses it using GZIP, and returns
 // a new reader that yields the compressed data.
 //
 // The compression happens asynchronously in a goroutine. The caller must close
 // the returned reader when done.
-//
-// Parameter r is the source data reader.
 //
 // Returns an io.Reader that provides GZIP-compressed data.
 func CompressWithGZIP(r io.Reader) io.Reader {
@@ -41,13 +42,14 @@ func CompressWithGZIP(r io.Reader) io.Reader {
 
 // DecompressWithGZIP creates a reader that provides GZIP-decompressed data.
 //
+// Parameters:
+//   - r: GZIP-compressed data reader
+//
 // It reads GZIP-compressed data from the input reader, decompresses it, and
 // returns a new reader that yields the original uncompressed data.
 //
 // The decompression happens asynchronously in a goroutine. The caller must close
 // the returned reader when done.
-//
-// Parameter r is the GZIP-compressed data reader.
 //
 // Returns an io.Reader that provides decompressed data.
 // Returns an error if the input stream is not valid GZIP data.

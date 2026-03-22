@@ -1,3 +1,8 @@
+// Package dbstorage provides database-backed storage for metrics.
+//
+// It implements the storage layer using PostgreSQL with support for
+// counters and gauges. The package includes automatic migration support
+// and retry mechanisms for database operations.
 package dbstorage
 
 import (
@@ -20,12 +25,24 @@ import (
 	"github.com/mikeziminio/go-custom-metrics/internal/retrier"
 )
 
+// DBStorage provides database-backed storage for metrics using PostgreSQL.
+//
+// It supports two metric types:
+//   - Counter: Incremental values stored as delta
+//   - Gauge: Point-in-time values stored as current value
+//
+// DBStorage implements automatic retry logic for database operations
+// and uses SQL migrations for schema management.
 type DBStorage struct {
 	db      *sql.DB
 	retrier Retrier
 	logger  *zap.Logger
 }
 
+// Retrier interface defines the retry mechanism contract.
+//
+// Implementations wrap a function with automatic retry logic,
+// classifying errors to determine which should trigger a retry.
 type Retrier interface {
 	Retry(f func() error) error
 }
@@ -36,6 +53,16 @@ var defaultRetryTimeouts = []time.Duration{
 	5 * time.Second,
 }
 
+// New creates a new DBStorage instance and applies database migrations.
+//
+// It establishes a connection to PostgreSQL, sets up retry logic,
+// and runs all pending migrations.
+//
+// Parameters:
+//   - connString: PostgreSQL connection string
+//   - logger: Logger instance for logging
+//
+// Returns a new DBStorage or an error if connection or migration fails.
 func New(connString string, logger *zap.Logger) (*DBStorage, error) {
 	var db *sql.DB
 	r := retrier.NewRetrier(defaultRetryTimeouts, newRetryClassifier())
@@ -97,6 +124,16 @@ func (s *DBStorage) migrateUp(connString string) error {
 	return nil
 }
 
+// Update stores a single metric in the database using a transaction.
+//
+// For counters, it increments the delta. For gauges, it updates the value.
+// The operation is wrapped in a transaction with automatic retry logic.
+//
+// Parameters:
+//   - ctx: Context for the database operation
+//   - m: Metric to store (must have valid ID, MType, and either Delta or Value)
+//
+// Returns the stored metric with updated values or an error.
 func (s *DBStorage) Update(ctx context.Context, m model.Metric) (*model.Metric, error) {
 	var tx *sql.Tx
 	err := s.retrier.Retry(func() (e error) {
@@ -177,6 +214,19 @@ func createUniqueMetrics(metrics []model.Metric) []model.Metric {
 	return uniqueMetrics
 }
 
+// Updates stores multiple metrics in a single batch operation.
+//
+// It handles duplicates by:
+//   - Summing deltas for counters
+//   - Replacing values for gauges
+//
+// The operation uses PostgreSQL's ON CONFLICT upsert pattern.
+//
+// Parameters:
+//   - ctx: Context for the database operation
+//   - metrics: Slice of metrics to store
+//
+// Returns an error if the batch operation fails.
 func (s *DBStorage) Updates(ctx context.Context, metrics []model.Metric) error {
 
 	if len(metrics) == 0 {
@@ -283,6 +333,12 @@ func (s *DBStorage) Close() error {
 	return nil
 }
 
+// Ping tests the database connection health.
+//
+// Parameters:
+//   - ctx: Context for the database operation
+//
+// Returns an error if the database is unreachable.
 func (s *DBStorage) Ping(ctx context.Context) error {
 	err := s.db.PingContext(ctx)
 	if err != nil {
@@ -291,6 +347,14 @@ func (s *DBStorage) Ping(ctx context.Context) error {
 	return nil
 }
 
+// Get retrieves a single metric from the database by ID and type.
+//
+// Parameters:
+//   - ctx: Context for the database operation
+//   - metricType: Type of metric (counter or gauge)
+//   - metricName: ID of the metric to retrieve
+//
+// Returns the metric if found, or model.ErrMetricNotFound if not present.
 func (s *DBStorage) Get(ctx context.Context, metricType model.MetricType, metricName string) (*model.Metric, error) {
 	var m model.Metric
 	var delta sql.NullInt64
@@ -327,6 +391,12 @@ func (s *DBStorage) Get(ctx context.Context, metricType model.MetricType, metric
 	return &m, nil
 }
 
+// List retrieves all metrics from the database.
+//
+// Parameters:
+//   - ctx: Context for the database operation
+//
+// Returns a map of metrics keyed by ID, or an error if the query fails.
 func (s *DBStorage) List(ctx context.Context) (map[string]model.Metric, error) {
 	var rows *sql.Rows
 	err := s.retrier.Retry(func() (e error) {

@@ -17,6 +17,11 @@ import (
 )
 
 // Update handles HTTP POST /value request to update a single metric.
+//
+// Parameters:
+//   - res: HTTP response writer
+//   - req: HTTP request containing metric data in JSON body
+//
 // It reads the metric from request body, updates it in storage,
 // and logs an audit event if enabled.
 func (a *APIServer) Update(res http.ResponseWriter, req *http.Request) {
@@ -82,6 +87,11 @@ func (a *APIServer) Update(res http.ResponseWriter, req *http.Request) {
 }
 
 // Updates handles HTTP POST /updates request to update multiple metrics.
+//
+// Parameters:
+//   - res: HTTP response writer
+//   - req: HTTP request containing metrics in JSON body
+//
 // It reads metrics from request body and updates them in storage in bulk,
 // then logs an audit event if enabled.
 func (a *APIServer) Updates(res http.ResponseWriter, req *http.Request) {
@@ -145,6 +155,11 @@ func (a *APIServer) Updates(res http.ResponseWriter, req *http.Request) {
 }
 
 // UpdateByParams handles HTTP POST /update/{metricType}/{metricName}/{value} request.
+//
+// Parameters:
+//   - res: HTTP response writer
+//   - req: HTTP request with metric parameters in URL path
+//
 // It extracts metric parameters from URL and updates the metric in storage,
 // then logs an audit event if enabled.
 func (a *APIServer) UpdateByParams(res http.ResponseWriter, req *http.Request) {
@@ -211,6 +226,11 @@ func (a *APIServer) UpdateByParams(res http.ResponseWriter, req *http.Request) {
 }
 
 // Get handles HTTP POST /value request to retrieve a single metric.
+//
+// Parameters:
+//   - res: HTTP response writer
+//   - req: HTTP request containing metric type and name in JSON body
+//
 // It reads metric type and name from request body and returns the value.
 func (a *APIServer) Get(res http.ResponseWriter, req *http.Request) {
 	body, err := io.ReadAll(req.Body)
@@ -255,6 +275,11 @@ func (a *APIServer) Get(res http.ResponseWriter, req *http.Request) {
 }
 
 // GetByParams handles HTTP GET /value/{metricType}/{metricName} request.
+//
+// Parameters:
+//   - res: HTTP response writer
+//   - req: HTTP request with metric parameters in URL path
+//
 // It extracts metric parameters from URL and returns the value as plain text.
 func (a *APIServer) GetByParams(res http.ResponseWriter, req *http.Request) {
 	mt := chi.URLParam(req, "metricType")
@@ -295,6 +320,11 @@ func (a *APIServer) GetByParams(res http.ResponseWriter, req *http.Request) {
 }
 
 // List handles HTTP GET / request to list all metrics.
+//
+// Parameters:
+//   - res: HTTP response writer
+//   - req: HTTP request
+//
 // It returns metrics in HTML format with id and value.
 func (a *APIServer) List(res http.ResponseWriter, req *http.Request) {
 	var b bytes.Buffer
@@ -323,6 +353,11 @@ func (a *APIServer) List(res http.ResponseWriter, req *http.Request) {
 }
 
 // Ping handles HTTP GET /ping health check request.
+//
+// Parameters:
+//   - res: HTTP response writer
+//   - req: HTTP request
+//
 // It returns status 200 if storage is reachable.
 func (a *APIServer) Ping(res http.ResponseWriter, req *http.Request) {
 	err := a.storage.Ping(req.Context())

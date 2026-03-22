@@ -1,3 +1,7 @@
+// Package syncer provides file-based metric persistence.
+//
+// It offers a FileSyncer struct that handles saving and loading metrics
+// to/from a JSON file with configurable file permissions.
 package syncer
 
 import (
@@ -58,6 +62,11 @@ func (s *FileSyncer) Restore() ([]model.Metric, error) {
 }
 
 // Sync saves metrics to the file in JSON format.
+//
+// Parameters:
+//   - metricSlice: Slice of metrics to save to file
+//
+// Returns an error if marshaling or writing to file fails.
 func (s *FileSyncer) Sync(metricSlice []model.Metric) error {
 	data, err := json.Marshal(metricSlice)
 	if err != nil {

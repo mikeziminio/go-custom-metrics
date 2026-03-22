@@ -1,7 +1,3 @@
-// Package compress provides GZIP compression and decompression HTTP middleware.
-//
-// It includes middleware handlers for automatically compressing outgoing
-// responses and decompressing incoming request bodies based on HTTP headers.
 package compress
 
 import (
@@ -11,17 +7,27 @@ import (
 	"strings"
 )
 
-// responseWriter wraps an http.ResponseWriter to enable GZIP compression
-// of written response data.
+// responseWriter wraps an http.responseWriter to compress response data
+// using GZIP compression.
 //
-// It intercepts WriteHeader and Write calls to compress response data
-// before sending it to the client. Only writes the first WriteHeader call.
+// It implements http.responseWriter and automatically sets the
+// Content-Encoding header to "gzip" before writing the first response.
+//
+// The WriteHeader method is idempotent - it only writes the header once,
+// ensuring the Content-Encoding header is set before any data is written.
 type responseWriter struct {
 	http.ResponseWriter
 	defaultStatusCode int
 	written           bool
 }
 
+// WriteHeader writes the HTTP response header with gzip encoding set.
+//
+// Parameters:
+//   - code: The HTTP status code to write
+//
+// This method is idempotent - it only writes the header once and sets
+// the Content-Encoding header to "gzip".
 func (rw *responseWriter) WriteHeader(code int) {
 	if !rw.written {
 		rw.ResponseWriter.Header().Set("Content-Encoding", "gzip")
@@ -30,6 +36,14 @@ func (rw *responseWriter) WriteHeader(code int) {
 	}
 }
 
+// Write compresses and writes data to the response.
+//
+// Parameters:
+//   - data: The byte slice to compress and write
+//
+// Returns the number of bytes written and any error encountered.
+// Automatically calls WriteHeader with the default status code if not
+// already called.
 func (rw *responseWriter) Write(data []byte) (int, error) {
 	if !rw.written {
 		rw.WriteHeader(rw.defaultStatusCode)
@@ -42,13 +56,14 @@ func (rw *responseWriter) Write(data []byte) (int, error) {
 // CompressMiddlewareHandler creates an HTTP middleware that compresses
 // response data using GZIP when the client supports it.
 //
+// Parameters:
+//   - next: The next HTTP handler in the chain
+//
 // It checks the Accept-Encoding header for "gzip" support, and if present,
 // wraps the response writer to compress all response data before sending.
 //
 // If the client doesn't support gzip compression, the middleware passes
 // the request through without modification.
-//
-// Parameter next is the next HTTP handler in the chain.
 //
 // Returns an http.Handler that compresses responses when supported.
 func CompressMiddlewareHandler(next http.Handler) http.Handler {
@@ -67,18 +82,18 @@ func CompressMiddlewareHandler(next http.Handler) http.Handler {
 	})
 }
 
-// readCloser wraps an io.Reader to satisfy io.ReadCloser interface.
+// readCloser wraps an io.Reader to implement io.readCloser.
 //
-// The Close method is implemented as a no-op since the underlying
-// reader doesn't need to be closed.
+// It provides a Close method that does nothing, fulfilling the
+// io.readCloser interface requirement without actual cleanup.
 type readCloser struct {
 	io.Reader
 }
 
-// Close is a no-op implementation of io.Closer for readCloser.
+// Close implements io.Closer for ReadCloser.
 //
-// Since the underlying reader doesn't need to be closed, this method
-// simply returns nil without performing any action.
+// It returns nil without performing any actual closing operation.
+// This allows ReadCloser to satisfy io.ReadCloser interface.
 func (rc *readCloser) Close() error { //nolint:revive // необходимо реализовать io.ReadCloser
 	return nil
 }
@@ -89,7 +104,8 @@ func (rc *readCloser) Close() error { //nolint:revive // необходимо р
 // It checks the Content-Encoding header for "gzip" value, and if present,
 // decompresses the request body before passing it to the next handler.
 //
-// Parameter next is the next HTTP handler in the chain.
+// Parameters:
+//   - next: The next HTTP handler in the chain
 //
 // Returns an http.Handler that decompresses request bodies when compressed.
 func DecompressMiddlewareHandler(next http.Handler) http.Handler {

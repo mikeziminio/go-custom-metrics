@@ -8,20 +8,27 @@ import (
 )
 
 // Config holds the configuration settings for the Server.
-//
-// Values can be set via environment variables (prefixed with SERVER_) or
-// command-line flags. Environment variables take precedence over flags.
 type Config struct {
-	Address         string  `envconfig:"ADDRESS"`
-	PprofAddress    string  `envconfig:"PPROF_ADDRESS"`
-	StoreInterval   float64 `envconfig:"STORE_INTERVAL"`
-	FileStoragePath string  `envconfig:"FILE_STORAGE_PATH"`
-	Restore         bool    `envconfig:"RESTORE"`
-	DatabaseDSN     string  `envconfig:"DATABASE_DSN"`
-	HashKey         string  `envconfig:"KEY"`
-	LogLevel        string
-	AuditFile       string `envconfig:"AUDIT_FILE"`
-	AuditURL        string `envconfig:"AUDIT_URL"`
+	// Address is the HTTP server host:port.
+	Address string `envconfig:"ADDRESS"`
+	// PprofAddress is the pprof server host:port.
+	PprofAddress string `envconfig:"PPROF_ADDRESS"`
+	// StoreInterval is the file storage interval in seconds.
+	StoreInterval float64 `envconfig:"STORE_INTERVAL"`
+	// FileStoragePath is the path to file for storing metrics.
+	FileStoragePath string `envconfig:"FILE_STORAGE_PATH"`
+	// Restore indicates whether to restore metrics from file on startup.
+	Restore bool `envconfig:"RESTORE"`
+	// DatabaseDSN is the database DSN for DB storage.
+	DatabaseDSN string `envconfig:"DATABASE_DSN"`
+	// HashKey is the key for request signature validation.
+	HashKey string `envconfig:"KEY"`
+	// LogLevel is the logging level (debug, info, warn, error).
+	LogLevel string
+	// AuditFile is the path to audit log file.
+	AuditFile string `envconfig:"AUDIT_FILE"`
+	// AuditURL is the URL for audit log HTTP endpoint.
+	AuditURL string `envconfig:"AUDIT_URL"`
 }
 
 var (
@@ -40,11 +47,11 @@ var (
 // New creates a new Config by reading environment variables
 // and command-line flags.
 //
-// Environment variables take precedence over flags. Valid environment variable
-// prefixes are: ADDRESS, PPROF_ADDRESS, STORE_INTERVAL, FILE_STORAGE_PATH,
-// RESTORE, DATABASE_DSN, KEY, AUDIT_FILE, AUDIT_URL.
+// Environment variables take precedence over flags.
+// Priority order: flags → env vars (env vars override flags).
 //
-// Returns a *Config and an error if parsing fails.
+// Returns a *Config populated with values and an error if parsing fails.
+// If successful, the returned config is always non-nil.
 func NewFromEnvsAndFlags() (*Config, error) {
 	c := Config{}
 

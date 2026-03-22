@@ -101,6 +101,9 @@ func NewAuditLogger(logger *zap.Logger, config AuditConfig) (*AuditLogger, error
 }
 
 // Register adds an observer to the audit logger.
+//
+// Parameters:
+//   - observer: Observer instance to register
 func (al *AuditLogger) Register(observer Observer) {
 	al.mu.Lock()
 	defer al.mu.Unlock()
@@ -108,6 +111,9 @@ func (al *AuditLogger) Register(observer Observer) {
 }
 
 // Deregister removes an observer from the audit logger.
+//
+// Parameters:
+//   - observer: Observer instance to remove
 func (al *AuditLogger) Deregister(observer Observer) {
 	al.mu.Lock()
 	defer al.mu.Unlock()
@@ -121,8 +127,10 @@ func (al *AuditLogger) Deregister(observer Observer) {
 
 // Notify notifies all registered observers about an audit event.
 //
-// It sends the event concurrently to all observers and returns an error
-// if any observer fails.
+// Parameters:
+//   - event: AuditEvent to broadcast to all observers
+//
+// Returns an error if any observer fails to process the event.
 func (al *AuditLogger) Notify(event AuditEvent) error {
 	al.mu.RLock()
 	defer al.mu.RUnlock()
@@ -151,7 +159,9 @@ func (al *AuditLogger) Notify(event AuditEvent) error {
 
 // Log logs an audit event to configured destinations.
 //
-// This is a wrapper around Notify for convenience.
+// Parameters:
+//   - ctx: Context for the operation (currently unused)
+//   - event: AuditEvent to log
 func (al *AuditLogger) Log(ctx context.Context, event AuditEvent) error {
 	return al.Notify(event)
 }
@@ -186,6 +196,11 @@ type FileObserver struct {
 
 // Update implements Observer interface for file logging.
 //
+// Parameters:
+//   - event: AuditEvent to write to the file
+//
+// Returns an error if the event cannot be marshaled or written to the file.
+//
 // It appends the JSON-encoded audit event to the file.
 func (fo *FileObserver) Update(event AuditEvent) error {
 	fo.mu.Lock()
@@ -211,6 +226,11 @@ type HTTPObserver struct {
 }
 
 // Update implements Observer interface for HTTP logging.
+//
+// Parameters:
+//   - event: AuditEvent to send to the HTTP endpoint
+//
+// Returns an error if the request cannot be created or sent.
 //
 // It sends the JSON-encoded audit event to the HTTP endpoint.
 func (ho *HTTPObserver) Update(event AuditEvent) error {

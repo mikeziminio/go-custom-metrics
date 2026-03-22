@@ -7,15 +7,24 @@ import (
 	"github.com/kelseyhightower/envconfig"
 )
 
+// Config holds configuration for the agent.
 type Config struct {
-	Address        string  `envconfig:"ADDRESS"`
+	// HTTP server host:port (env: ADDRESS)
+	Address string `envconfig:"ADDRESS"`
+	// Metric reporting frequency to server (env: REPORT_INTERVAL)
 	ReportInterval float64 `envconfig:"REPORT_INTERVAL"`
-	PollInterval   float64 `envconfig:"POLL_INTERVAL"`
-	HashKey        string  `envconfig:"KEY"`
-	RateLimit      int     `envconfig:"RATE_LIMIT"`
-	LogLevel       string
-	UseCompress    bool
-	Timeout        float64
+	// Metric polling frequency (env: POLL_INTERVAL)
+	PollInterval float64 `envconfig:"POLL_INTERVAL"`
+	// Signature key (env: KEY)
+	HashKey string `envconfig:"KEY"`
+	// Maximum concurrent requests to server (env: RATE_LIMIT)
+	RateLimit int `envconfig:"RATE_LIMIT"`
+	// LogLevel is the logging level (debug, info, warn, error).
+	LogLevel string
+	// UseCompress enables GZIP compression
+	UseCompress bool
+	// Request timeout in seconds
+	Timeout float64
 }
 
 var (
@@ -33,8 +42,10 @@ var (
 // and command-line flags.
 //
 // Environment variables take precedence over flags.
+// Priority order: flags → env vars (env vars override flags).
 //
-// Returns a *Config and an error if parsing fails.
+// Returns a *Config populated with values and an error if parsing fails.
+// If successful, the returned config is always non-nil.
 func NewFromEnvsAndFlags() (*Config, error) {
 	c := Config{}
 

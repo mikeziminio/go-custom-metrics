@@ -10,6 +10,11 @@ import (
 )
 
 // Restore loads metrics from the file into memory.
+//
+// Parameters:
+//   - ctx: Context for the operation (ignored)
+//
+// Returns an error if the file cannot be read or parsed.
 func (s *MemStorage) Restore(_ context.Context) error {
 	metricSlice, err := s.syncer.Restore()
 	if err != nil {
@@ -25,6 +30,11 @@ func (s *MemStorage) Restore(_ context.Context) error {
 }
 
 // Sync saves metrics from memory to the file.
+//
+// Parameters:
+//   - ctx: Context for the operation (ignored)
+//
+// Returns an error if the file cannot be written.
 func (s *MemStorage) Sync(_ context.Context) error {
 	s.mu.RLock()
 	values := maps.Values(s.metrics)

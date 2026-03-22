@@ -9,16 +9,16 @@ import (
 	"github.com/mikeziminio/go-custom-metrics/internal/retrier"
 )
 
-// retryClassifier implements the RetryClassifier interface for database-specific error handling.
+// retryClassifier implements the retryClassifier interface for database-specific error handling.
 //
 // It classifies PostgreSQL errors into retriable and non-retriable categories:
 //   - Retriable: connection issues (08xxx), transaction rollbacks (40xxx), deadlock (40P01)
 //   - Non-retriable: all other errors including data errors (22xxx, 23xxx)
 type retryClassifier struct{}
 
-// newRetryClassifier creates a new instance of retryClassifier.
+// newRetryClassifier creates a new instance of RetryClassifier.
 //
-// Returns a *retryClassifier ready for use in classifying database errors.
+// Returns a *RetryClassifier ready for use in classifying database errors.
 func newRetryClassifier() *retryClassifier {
 	return &retryClassifier{}
 }
@@ -29,8 +29,8 @@ func newRetryClassifier() *retryClassifier {
 //   - err: The error to classify
 //
 // Returns:
-//   - Retriable: for connection failures, transaction rollbacks, deadlocks
-//   - NonRetriable: for all other errors including data errors
+//   - retrier.Retriable: for connection failures, transaction rollbacks, deadlocks
+//   - retrier.NonRetriable: for all other errors including data errors
 func (*retryClassifier) ClassifyError(err error) retrier.ErrorClass {
 	if err == nil {
 		return retrier.NonRetriable

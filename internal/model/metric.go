@@ -1,3 +1,7 @@
+// Package model defines the data structures used for metrics.
+//
+// It provides the Metric struct with Support for both counter and gauge types,
+// along with error definitions for common operations.
 package model
 
 import (
@@ -12,6 +16,9 @@ const (
 )
 
 // NewMetricTypeFromString converts a string to a MetricType.
+//
+// Parameters:
+//   - s: String representation of the metric type
 //
 // Returns an error if the string does not match "counter" or "gauge".
 func NewMetricTypeFromString(s string) (MetricType, error) {

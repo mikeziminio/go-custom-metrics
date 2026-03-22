@@ -1,3 +1,10 @@
+// Package agent provides a metrics collection and transmission agent.
+//
+// It collects system metrics (CPU, memory, Go runtime statistics) at regular
+// intervals and sends them to a configured metrics server using HTTP requests.
+//
+// The Agent supports concurrent metric transmission with rate limiting,
+// automatic retries with configurable timeouts, and optional GZIP compression.
 package agent
 
 import (
@@ -163,11 +170,6 @@ func New(
 }
 
 // randFloat64 generates a cryptographically secure random float64 in [0.0, 1.0).
-//
-// It reads 8 random bytes from crypto/rand and converts them to a float64.
-// If crypto/rand fails, it falls back to math/rand/v2 (non-cryptographic).
-//
-// Returns a random float64 value between 0.0 (inclusive) and 1.0 (exclusive).
 func randFloat64() float64 {
 	b := make([]byte, 8) //nolint:mnd // 8 bytes for uint64
 	_, err := rand.Read(b)
@@ -198,11 +200,6 @@ func (a *Agent) Collect() error {
 }
 
 // collectBasic collects standard Go runtime memory and GC metrics.
-//
-// It reads Go runtime memory statistics using runtime.ReadMemStats and stores
-// them in the Agent's gauges map with the metric name as the key.
-//
-// This method is not thread-safe and must be called with the mutex locked.
 func (a *Agent) collectBasic() {
 	var ms runtime.MemStats
 	runtime.ReadMemStats(&ms)
@@ -241,10 +238,6 @@ func (a *Agent) collectBasic() {
 }
 
 // collectExtra collects system-level metrics (memory, CPU) using gopsutil.
-//
-// It fetches virtual memory statistics and CPU utilization percentages,
-// storing them in the Agent's gauges map.
-//
 // Returns an error if either memory or CPU metrics cannot be retrieved.
 func (a *Agent) collectExtra() error {
 	vm, err := mem.VirtualMemory()
@@ -332,6 +325,10 @@ func (a *Agent) SendByBatch(ctx context.Context, metrics []model.Metric, useComp
 
 // SendAll sends all currently stored metrics to the server.
 //
+// Parameters:
+//   - ctx: Context for the HTTP request (for cancellation/timeout)
+//   - useCompress: Whether to use GZIP compression for this request
+//
 // It converts the internal maps of gauges and counters into a slice of
 // model.Metric structs and sends them using SendByBatch.
 //
@@ -361,15 +358,15 @@ func (a *Agent) SendAll(ctx context.Context, useCompress bool) {
 
 // Run starts the agent's main collection and transmission loop.
 //
+// Parameters:
+//   - ctx: Context for the agent's operation
+//
 // It runs two concurrent goroutines:
 //  1. Collects metrics at the specified pollInterval
 //  2. Sends metrics to the server at the specified reportInterval
 //
 // The function blocks until it receives SIGINT or SIGTERM signals, then
 // gracefully stops both goroutines before returning.
-//
-// Parameters:
-//   - ctx: Context for the agent's operation
 func (a *Agent) Run(ctx context.Context) {
 	ctx, cancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
