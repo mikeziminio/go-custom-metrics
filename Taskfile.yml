@@ -120,7 +120,7 @@ tasks:
   doc:
     desc: Generate Go documentation and serve it
     cmds:
-      - "godoc -http=:6060 & sleep 2"
+      - "godoc -play -http=:6060 & sleep 2"
       - "open http://localhost:6060/pkg/github.com/mikeziminio/go-custom-metrics/?m=all"
 
   swag-prepare:

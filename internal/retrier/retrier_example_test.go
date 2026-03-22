@@ -1,13 +1,15 @@
-package retrier
+package retrier_test
 
 import (
 	"fmt"
 	"time"
+
+	"github.com/mikeziminio/go-custom-metrics/internal/retrier"
 )
 
 func ExampleRetrier_Retry_successFirstAttempt() {
-	classifier := NewDefaultRetryClassifier()
-	retrier := NewRetrier([]time.Duration{100 * time.Millisecond}, classifier)
+	classifier := retrier.NewDefaultRetryClassifier()
+	retrier := retrier.NewRetrier([]time.Duration{100 * time.Millisecond}, classifier)
 
 	attempts := 0
 	op := func() error {
@@ -22,8 +24,8 @@ func ExampleRetrier_Retry_successFirstAttempt() {
 }
 
 func ExampleRetrier_Retry_onError() {
-	classifier := NewDefaultRetryClassifier()
-	retrier := NewRetrier([]time.Duration{10 * time.Millisecond}, classifier)
+	classifier := retrier.NewDefaultRetryClassifier()
+	retrier := retrier.NewRetrier([]time.Duration{10 * time.Millisecond, 10 * time.Millisecond}, classifier)
 
 	attempts := 0
 	op := func() error {

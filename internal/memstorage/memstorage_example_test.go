@@ -1,4 +1,4 @@
-package memstorage
+package memstorage_test
 
 import (
 	"context"
@@ -7,13 +7,14 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/mikeziminio/go-custom-metrics/internal/memstorage"
 	"github.com/mikeziminio/go-custom-metrics/internal/model"
 )
 
-func ExampleStorage_Update_counter() {
+func ExampleMemStorage_Update_counter() {
 	ctx := context.Background()
 
-	storage, err := New(false, "", zap.L())
+	storage, err := memstorage.New(false, "", zap.L())
 	if err != nil {
 		fmt.Println("Error creating storage:", err)
 		return
@@ -51,10 +52,10 @@ func ExampleStorage_Update_counter() {
 	// Updated counter value after second update: 150
 }
 
-func ExampleStorage_Update_gauge() {
+func ExampleMemStorage_Update_gauge() {
 	ctx := context.Background()
 
-	storage, err := New(false, "", zap.L())
+	storage, err := memstorage.New(false, "", zap.L())
 	if err != nil {
 		fmt.Println("Error creating storage:", err)
 		return
@@ -92,7 +93,7 @@ func ExampleStorage_Update_gauge() {
 	// Updated gauge value after second update: 100.7
 }
 
-func ExampleStorage_Update_withTimeout() {
+func ExampleMemStorage_Update_withTimeout() {
 	metric := model.Metric{
 		ID:    "timeout_test",
 		MType: model.Counter,
@@ -102,7 +103,7 @@ func ExampleStorage_Update_withTimeout() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	storage, err := New(false, "", zap.L())
+	storage, err := memstorage.New(false, "", zap.L())
 	if err != nil {
 		fmt.Println("Error creating storage:", err)
 		return
@@ -119,7 +120,7 @@ func ExampleStorage_Update_withTimeout() {
 	// Updated metric: timeout_test, value: 10
 }
 
-func ExampleStorage_Update_errorContext() {
+func ExampleMemStorage_Update_errorContext() {
 	metric := model.Metric{
 		ID:    "test_metric",
 		MType: model.Gauge,
@@ -128,7 +129,7 @@ func ExampleStorage_Update_errorContext() {
 
 	ctx := context.Background()
 
-	storage, err := New(false, "", zap.L())
+	storage, err := memstorage.New(false, "", zap.L())
 	if err != nil {
 		fmt.Println("Error creating storage:", err)
 		return
