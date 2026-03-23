@@ -138,3 +138,9 @@ tasks:
      cmds:
       - "$BIN/swag fmt  -d './internal/server,./internal/model' -g 'handler.go'"
       - "$BIN/swag init --v3.1 -d './internal/server,./internal/model' -g 'handler.go' -o ./swagger/ -ot 'json,yaml'"
+
+  reset:
+    desc: Generate reset methods for structures with // generate:reset comments
+    cmds:
+      - "go build -o $BIN/reset ./cmd/reset"
+      - "$BIN/reset ./..."
