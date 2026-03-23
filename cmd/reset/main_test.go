@@ -118,8 +118,8 @@ func TestFindPackagesWithResetComments(t *testing.T) {
 					{
 						Name: "User",
 						Fields: []fieldInfo{
-							{Name: "Name", Type: "string"},
-							{Name: "Age", Type: "int"},
+							{Name: "Name", Type: "string", BaseType: "string"},
+							{Name: "Age", Type: "int", BaseType: "int"},
 						},
 					},
 				},
@@ -133,8 +133,8 @@ func TestFindPackagesWithResetComments(t *testing.T) {
 					{
 						Name: "User",
 						Fields: []fieldInfo{
-							{Name: "Name", Type: "string"},
-							{Name: "Age", Type: "int"},
+							{Name: "Name", Type: "string", BaseType: "string"},
+							{Name: "Age", Type: "int", BaseType: "int"},
 						},
 					},
 				},
@@ -148,14 +148,14 @@ func TestFindPackagesWithResetComments(t *testing.T) {
 					{
 						Name: "User",
 						Fields: []fieldInfo{
-							{Name: "Name", Type: "string"},
+							{Name: "Name", Type: "string", BaseType: "string"},
 						},
 					},
 					{
 						Name: "Post",
 						Fields: []fieldInfo{
-							{Name: "Title", Type: "string"},
-							{Name: "Body", Type: "string"},
+							{Name: "Title", Type: "string", BaseType: "string"},
+							{Name: "Body", Type: "string", BaseType: "string"},
 						},
 					},
 				},
@@ -174,7 +174,7 @@ func TestFindPackagesWithResetComments(t *testing.T) {
 					{
 						Name: "User",
 						Fields: []fieldInfo{
-							{Name: "Name", Type: "string"},
+							{Name: "Name", Type: "string", BaseType: "string"},
 						},
 					},
 				},
@@ -188,13 +188,13 @@ func TestFindPackagesWithResetComments(t *testing.T) {
 					{
 						Name: "User",
 						Fields: []fieldInfo{
-							{Name: "Name", Type: "string"},
+							{Name: "Name", Type: "string", BaseType: "string"},
 						},
 					},
 					{
 						Name: "Post",
 						Fields: []fieldInfo{
-							{Name: "Title", Type: "string"},
+							{Name: "Title", Type: "string", BaseType: "string"},
 						},
 					},
 				},
@@ -208,8 +208,8 @@ func TestFindPackagesWithResetComments(t *testing.T) {
 					{
 						Name: "User",
 						Fields: []fieldInfo{
-							{Name: "Name", Type: "string"},
-							{Name: "Age", Type: "int"},
+							{Name: "Name", Type: "string", BaseType: "string"},
+							{Name: "Age", Type: "int", BaseType: "int"},
 						},
 					},
 				},
@@ -223,12 +223,12 @@ func TestFindPackagesWithResetComments(t *testing.T) {
 					{
 						Name: "Complex",
 						Fields: []fieldInfo{
-							{Name: "Ptr", Type: "*string", PointTo: "string", IsPtr: true},
-							{Name: "Slice", Type: "[]int", ElementType: "int", IsSlice: true},
-							{Name: "Map", Type: "map[string]int", ElementType: "int", IsMap: true},
-							{Name: "Struct", Type: "struct{}", IsStruct: true},
-							{Name: "Named", Type: "User"},
-							{Name: "Pointer", Type: "*User", PointTo: "User", IsPtr: true},
+							{Name: "Ptr", Type: "*string", PointTo: "string", BaseType: "string", IsPtr: true},
+							{Name: "Slice", Type: "[]int", ElementType: "int", BaseType: "int", IsSlice: true},
+							{Name: "Map", Type: "map[string]int", ElementType: "int", BaseType: "int", IsMap: true},
+							{Name: "Struct", Type: "struct{}", BaseType: "struct{}", IsStruct: true},
+							{Name: "Named", Type: "User", BaseType: "User"},
+							{Name: "Pointer", Type: "*User", PointTo: "User", BaseType: "User", IsPtr: true},
 						},
 					},
 				},
@@ -242,7 +242,7 @@ func TestFindPackagesWithResetComments(t *testing.T) {
 					{
 						Name: "User",
 						Fields: []fieldInfo{
-							{Name: "Name", Type: "string"},
+							{Name: "Name", Type: "string", BaseType: "string"},
 						},
 					},
 				},
@@ -256,7 +256,7 @@ func TestFindPackagesWithResetComments(t *testing.T) {
 					{
 						Name: "Valid",
 						Fields: []fieldInfo{
-							{Name: "Name", Type: "string"},
+							{Name: "Name", Type: "string", BaseType: "string"},
 						},
 					},
 				},
@@ -270,7 +270,7 @@ func TestFindPackagesWithResetComments(t *testing.T) {
 					{
 						Name: "MainStruct",
 						Fields: []fieldInfo{
-							{Name: "Name", Type: "string"},
+							{Name: "Name", Type: "string", BaseType: "string"},
 						},
 					},
 				},
@@ -284,11 +284,11 @@ func TestFindPackagesWithResetComments(t *testing.T) {
 					{
 						Name: "AllFields",
 						Fields: []fieldInfo{
-							{Name: "ID", Type: "int"},
-							{Name: "Name", Type: "string"},
-							{Name: "Active", Type: "bool"},
-							{Name: "Score", Type: "float64"},
-							{Name: "CreatedAt", Type: "int64"},
+							{Name: "ID", Type: "int", BaseType: "int"},
+							{Name: "Name", Type: "string", BaseType: "string"},
+							{Name: "Active", Type: "bool", BaseType: "bool"},
+							{Name: "Score", Type: "float64", BaseType: "float"},
+							{Name: "CreatedAt", Type: "int64", BaseType: "int"},
 						},
 					},
 				},
@@ -302,7 +302,7 @@ func TestFindPackagesWithResetComments(t *testing.T) {
 					{
 						Name: "User",
 						Fields: []fieldInfo{
-							{Name: "Name", Type: "string"},
+							{Name: "Name", Type: "string", BaseType: "string"},
 						},
 					},
 				},
@@ -372,8 +372,8 @@ func TestGenerateResetMethod(t *testing.T) {
 			structInfo: structInfo{
 				Name: "Simple",
 				Fields: []fieldInfo{
-					{Name: "ID", Type: "int"},
-					{Name: "Name", Type: "string"},
+					{Name: "ID", Type: "int", BaseType: "int"},
+					{Name: "Name", Type: "string", BaseType: "string"},
 				},
 				HasReset: false,
 			},
@@ -389,7 +389,7 @@ func TestGenerateResetMethod(t *testing.T) {
 			structInfo: structInfo{
 				Name: "WithPtr",
 				Fields: []fieldInfo{
-					{Name: "Value", Type: "*int", PointTo: "int", IsPtr: true},
+					{Name: "Value", Type: "*int", PointTo: "int", BaseType: "int", IsPtr: true},
 				},
 				HasReset: false,
 			},
@@ -405,7 +405,7 @@ func TestGenerateResetMethod(t *testing.T) {
 			structInfo: structInfo{
 				Name: "WithSlice",
 				Fields: []fieldInfo{
-					{Name: "Items", Type: "[]int", ElementType: "int", IsSlice: true},
+					{Name: "Items", Type: "[]int", ElementType: "int", BaseType: "int", IsSlice: true},
 				},
 				HasReset: false,
 			},
@@ -420,7 +420,7 @@ func TestGenerateResetMethod(t *testing.T) {
 			structInfo: structInfo{
 				Name: "WithMap",
 				Fields: []fieldInfo{
-					{Name: "Data", Type: "map[string]int", ElementType: "int", IsMap: true},
+					{Name: "Data", Type: "map[string]int", ElementType: "int", BaseType: "int", IsMap: true},
 				},
 				HasReset: false,
 			},
@@ -435,11 +435,11 @@ func TestGenerateResetMethod(t *testing.T) {
 			structInfo: structInfo{
 				Name: "MultiFields",
 				Fields: []fieldInfo{
-					{Name: "ID", Type: "int"},
-					{Name: "Name", Type: "string"},
-					{Name: "Ptr", Type: "*string", PointTo: "string", IsPtr: true},
-					{Name: "Slice", Type: "[]int", ElementType: "int", IsSlice: true},
-					{Name: "Map", Type: "map[string]int", ElementType: "int", IsMap: true},
+					{Name: "ID", Type: "int", BaseType: "int"},
+					{Name: "Name", Type: "string", BaseType: "string"},
+					{Name: "Ptr", Type: "*string", PointTo: "string", BaseType: "string", IsPtr: true},
+					{Name: "Slice", Type: "[]int", ElementType: "int", BaseType: "int", IsSlice: true},
+					{Name: "Map", Type: "map[string]int", ElementType: "int", BaseType: "int", IsMap: true},
 				},
 				HasReset: false,
 			},
@@ -459,7 +459,7 @@ func TestGenerateResetMethod(t *testing.T) {
 			structInfo: structInfo{
 				Name: "WithFloat",
 				Fields: []fieldInfo{
-					{Name: "Score", Type: "float64"},
+					{Name: "Score", Type: "float64", BaseType: "float"},
 				},
 				HasReset: false,
 			},
@@ -474,7 +474,7 @@ func TestGenerateResetMethod(t *testing.T) {
 			structInfo: structInfo{
 				Name: "WithBool",
 				Fields: []fieldInfo{
-					{Name: "Active", Type: "bool"},
+					{Name: "Active", Type: "bool", BaseType: "bool"},
 				},
 				HasReset: false,
 			},
@@ -510,7 +510,7 @@ func TestGenerateResetMethodWithStructTypes(t *testing.T) {
 			structInfo: structInfo{
 				Name: "WithStructPtr",
 				Fields: []fieldInfo{
-					{Name: "Config", Type: "*AppConfig", PointTo: "AppConfig", IsPtr: true},
+					{Name: "Config", Type: "*AppConfig", PointTo: "AppConfig", BaseType: "AppConfig", IsPtr: true},
 				},
 				HasReset: false,
 			},
@@ -703,18 +703,18 @@ func TestIntegrationGenerateResetFile(t *testing.T) {
 		{
 			Name: "TestStruct",
 			Fields: []fieldInfo{
-				{Name: "ID", Type: "int"},
-				{Name: "Name", Type: "string"},
-				{Name: "Active", Type: "bool"},
+				{Name: "ID", Type: "int", BaseType: "int"},
+				{Name: "Name", Type: "string", BaseType: "string"},
+				{Name: "Active", Type: "bool", BaseType: "bool"},
 			},
 			HasReset: false,
 		},
 		{
 			Name: "ComplexStruct",
 			Fields: []fieldInfo{
-				{Name: "Ptr", Type: "*string", PointTo: "string", IsPtr: true},
-				{Name: "Slice", Type: "[]int", ElementType: "int", IsSlice: true},
-				{Name: "Map", Type: "map[string]int", ElementType: "int", IsMap: true},
+				{Name: "Ptr", Type: "*string", PointTo: "string", BaseType: "string", IsPtr: true},
+				{Name: "Slice", Type: "[]int", ElementType: "int", BaseType: "int", IsSlice: true},
+				{Name: "Map", Type: "map[string]int", ElementType: "int", BaseType: "int", IsMap: true},
 			},
 			HasReset: false,
 		},
@@ -745,14 +745,14 @@ func TestGenerateResetFile(t *testing.T) {
 		{
 			Name: "User",
 			Fields: []fieldInfo{
-				{Name: "ID", Type: "int"},
+				{Name: "ID", Type: "int", BaseType: "int"},
 			},
 			HasReset: false,
 		},
 		{
 			Name: "Post",
 			Fields: []fieldInfo{
-				{Name: "Title", Type: "string"},
+				{Name: "Title", Type: "string", BaseType: "string"},
 			},
 			HasReset: false,
 		},

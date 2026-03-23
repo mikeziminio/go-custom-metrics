@@ -24,6 +24,7 @@ type fieldInfo struct {
 	Type        string
 	PointTo     string
 	ElementType string
+	BaseType    string
 	IsPtr       bool
 	IsSlice     bool
 	IsMap       bool
@@ -224,16 +225,23 @@ func extractStructInfo(name string, structType *ast.StructType, types map[string
 			case *ast.StarExpr:
 				fieldInfo.IsPtr = true
 				fieldInfo.PointTo = astExprToString(t.X)
+				fieldInfo.BaseType = getBaseType(fieldInfo.PointTo)
 			case *ast.ArrayType:
 				if t.Len == nil {
 					fieldInfo.IsSlice = true
 					fieldInfo.ElementType = astExprToString(t.Elt)
+					fieldInfo.BaseType = getBaseType(fieldInfo.ElementType)
 				}
 			case *ast.MapType:
 				fieldInfo.IsMap = true
 				fieldInfo.ElementType = astExprToString(t.Value)
+				fieldInfo.BaseType = getBaseType(fieldInfo.ElementType)
 			case *ast.StructType:
 				fieldInfo.IsStruct = true
+				fieldInfo.BaseType = getBaseType(fieldInfo.Type)
+			default:
+				// For basic identifier types (int, string, bool, etc.)
+				fieldInfo.BaseType = getBaseType(fieldInfo.Type)
 			}
 
 			fields = append(fields, fieldInfo)
@@ -406,31 +414,60 @@ func isStructType(typ string, structTypes map[string]struct{}) bool {
 	return ok
 }
 
+func getBaseType(typ string) string {
+	if typ == "" {
+		return ""
+	}
+
+	switch {
+	case typ == "int", typ == "int8", typ == "int16", typ == "int32", typ == "int64":
+		return "int"
+	case typ == "uint", typ == "uint8", typ == "uint16", typ == "uint32", typ == "uint64":
+		return "uint"
+	case typ == "float32", typ == "float64":
+		return "float"
+	case typ == "bool":
+		return "bool"
+	case typ == "string":
+		return "string"
+	default:
+		// For named types that don't match basic types, return the type itself
+		return typ
+	}
+}
+
+func getZeroValueByBaseType(baseType string) string {
+	switch baseType {
+	case "int":
+		return "0"
+	case "uint":
+		return "0"
+	case "float":
+		return "0"
+	case "bool":
+		return "false"
+	case "string":
+		return `""`
+	case "struct{}":
+		return "{}"
+	default:
+		return "nil"
+	}
+}
+
 func getZeroValue(typ string) string {
 	if typ == "" {
 		return "nil"
 	}
 
-	switch {
-	case typ == "int", typ == "int8", typ == "int16", typ == "int32", typ == "int64",
-		typ == "uint", typ == "uint8", typ == "uint16", typ == "uint32", typ == "uint64",
-		typ == "float32", typ == "float64":
-		return "0"
-	case typ == "bool":
-		return "false"
-	case typ == "string":
-		return `""`
-	case strings.HasPrefix(typ, "*"):
-		return "nil"
-	case strings.HasPrefix(typ, "[]"):
-		return "nil"
-	case strings.HasPrefix(typ, "map"):
-		return "nil"
-	case typ == "struct{}":
-		return "{}"
-	default:
+	// For pointer, slice, and map types, return nil
+	if strings.HasPrefix(typ, "*") || strings.HasPrefix(typ, "[]") || strings.HasPrefix(typ, "map[") {
 		return "nil"
 	}
+
+	// For named types, get the base type and use getZeroValueByBaseType
+	baseType := getBaseType(typ)
+	return getZeroValueByBaseType(baseType)
 }
 
 // + has unit test
