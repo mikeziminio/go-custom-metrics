@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 
+	"github.com/mikeziminio/go-custom-metrics/internal/ip"
 	"github.com/mikeziminio/go-custom-metrics/internal/model"
 )
 
@@ -70,7 +71,7 @@ func (a *APIServer) Update(res http.ResponseWriter, req *http.Request) {
 
 	// Log audit event
 	if a.auditLogger != nil {
-		ipAddress := extractIPAddress(req)
+		ipAddress := ip.ExtractIPAddress(req)
 		event := AuditEvent{
 			Timestamp: time.Now().Unix(),
 			Metrics:   []string{fmt.Sprintf("%s:%s", data.MType, data.ID)},
@@ -154,7 +155,7 @@ func (a *APIServer) Updates(res http.ResponseWriter, req *http.Request) {
 
 	// Log audit event
 	if a.auditLogger != nil {
-		ipAddress := extractIPAddress(req)
+		ipAddress := ip.ExtractIPAddress(req)
 		metricNames := make([]string, 0, len(data))
 		for _, d := range data {
 			metricNames = append(metricNames, fmt.Sprintf("%s:%s", d.MType, d.ID))
@@ -240,7 +241,7 @@ func (a *APIServer) UpdateByParams(res http.ResponseWriter, req *http.Request) {
 
 	// Log audit event
 	if a.auditLogger != nil {
-		ipAddress := extractIPAddress(req)
+		ipAddress := ip.ExtractIPAddress(req)
 		event := AuditEvent{
 			Timestamp: time.Now().Unix(),
 			Metrics:   []string{fmt.Sprintf("%s:%s", metricType, metricName)},

@@ -5,10 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net"
 	"net/http"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -137,13 +135,16 @@ func (al *AuditLogger) Notify(event AuditEvent) error {
 
 	var wg sync.WaitGroup
 	var errs []error
+	var mu sync.Mutex
 
 	for _, observer := range al.observers {
 		wg.Add(1)
 		go func(obs Observer) {
 			defer wg.Done()
 			if err := obs.Update(event); err != nil {
+				mu.Lock()
 				errs = append(errs, err)
+				mu.Unlock()
 			}
 		}(observer)
 	}
@@ -256,50 +257,4 @@ func (ho *HTTPObserver) Update(event AuditEvent) error {
 	}
 
 	return nil
-}
-
-// extractIPAddress extracts the IP address from the request.
-//
-// It checks X-Forwarded-For, X-Real-IP headers, and falls back to RemoteAddr.
-func extractIPAddress(r *http.Request) string {
-	// First try to get IP from X-Forwarded-For header
-	ip := r.Header.Get("X-Forwarded-For")
-	if ip != "" {
-		// X-Forwarded-For might have multiple IPs, get the first one
-		ips := []string{}
-		for _, v := range []string{",", ";"} {
-			ips = append(ips, strings.Split(ip, v)...)
-		}
-		if len(ips) > 0 {
-			ip = strings.TrimSpace(ips[0])
-		}
-		// Validate IP format
-		if net.ParseIP(ip) != nil {
-			return ip
-		}
-	}
-
-	// Then try X-Real-IP header
-	if ip == "" {
-		ip = r.Header.Get("X-Real-IP")
-		if ip != "" && net.ParseIP(ip) != nil {
-			return ip
-		}
-	}
-
-	// Finally fall back to RemoteAddr
-	if ip == "" {
-		ip = r.RemoteAddr
-		// Extract IP from "host:port" format
-		if host, _, err := net.SplitHostPort(ip); err == nil {
-			ip = host
-		}
-		// Validate IP format
-		if net.ParseIP(ip) != nil {
-			return ip
-		}
-	}
-
-	// If we can't parse any IP, return empty string
-	return ""
 }

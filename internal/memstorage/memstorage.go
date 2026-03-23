@@ -7,6 +7,7 @@ package memstorage
 import (
 	"context"
 	"fmt"
+	"maps"
 	"sync"
 
 	"go.uber.org/zap"
@@ -108,13 +109,9 @@ func (s *MemStorage) Updates(ctx context.Context, metrics []model.Metric) error 
 //
 // Returns a copy of the metrics map or an error.
 func (s *MemStorage) List(_ context.Context) (map[string]*model.Metric, error) {
-	// todo: next sprints
-	// Возвращает копию мапы с метриками - не самый оптимальный вариант,
-	// Но т.к. требования к структуре хранения метрик вероятно будет
-	// обновлено в следующих спринтах - для упрощения пока сделано так.
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.metrics, nil
+	return maps.Clone(s.metrics), nil
 }
 
 // Get retrieves a specific metric from memory.
