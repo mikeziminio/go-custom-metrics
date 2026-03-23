@@ -35,7 +35,7 @@ type Storage interface {
 	// Updates updates multiple metrics in bulk.
 	Updates(ctx context.Context, metrics []model.Metric) error
 	// List returns all metrics as a map.
-	List(ctx context.Context) (map[string]model.Metric, error)
+	List(ctx context.Context) (map[string]*model.Metric, error)
 	// Get retrieves a specific metric by type and name.
 	Get(ctx context.Context, metricType model.MetricType, metricName string) (*model.Metric, error)
 	// Ping checks if the storage is reachable.

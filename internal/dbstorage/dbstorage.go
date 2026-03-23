@@ -396,7 +396,7 @@ func (s *DBStorage) Get(ctx context.Context, metricType model.MetricType, metric
 //   - ctx: Context for the database operation
 //
 // Returns a map of metrics keyed by ID, or an error if the query fails.
-func (s *DBStorage) List(ctx context.Context) (map[string]model.Metric, error) {
+func (s *DBStorage) List(ctx context.Context) (map[string]*model.Metric, error) {
 	var rows *sql.Rows
 	err := s.retrier.Retry(func() (e error) {
 		rows, e = s.db.QueryContext(ctx, "SELECT id, m_type, delta, value FROM metric")
@@ -412,7 +412,7 @@ func (s *DBStorage) List(ctx context.Context) (map[string]model.Metric, error) {
 	}
 	defer rows.Close()
 
-	metrics := make(map[string]model.Metric)
+	metrics := make(map[string]*model.Metric)
 	for rows.Next() {
 		var m model.Metric
 		var delta sql.NullInt64
@@ -433,7 +433,7 @@ func (s *DBStorage) List(ctx context.Context) (map[string]model.Metric, error) {
 			}
 		}
 
-		metrics[m.ID] = m
+		metrics[m.ID] = &m
 	}
 	if err = rows.Err(); err != nil {
 		return nil, fmt.Errorf("rows error: %w", err)

@@ -385,7 +385,7 @@ func TestGetByParamsFailed(t *testing.T) {
 func TestList(t *testing.T) {
 	storage := NewMockStorage(t)
 	storage.EXPECT().List(mock.Anything).
-		Return(map[string]model.Metric{
+		Return(map[string]*model.Metric{
 			"some": {
 				ID:    "some",
 				MType: model.Gauge,

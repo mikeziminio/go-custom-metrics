@@ -17,7 +17,7 @@ func TestUpdate(t *testing.T) {
 		name            string
 		initialMetrics  map[string]model.Metric
 		updatedModel    model.Metric
-		expectedMetrics map[string]model.Metric
+		expectedMetrics map[string]*model.Metric
 	}{
 		{
 			name:           "add counter metric to empty map",
@@ -28,7 +28,7 @@ func TestUpdate(t *testing.T) {
 				Delta: helper.NewInt64(t, 5),
 				Value: nil,
 			},
-			expectedMetrics: map[string]model.Metric{
+			expectedMetrics: map[string]*model.Metric{
 				"some": {
 					ID:    "some",
 					MType: model.Counter,
@@ -53,7 +53,7 @@ func TestUpdate(t *testing.T) {
 				Delta: helper.NewInt64(t, 8),
 				Value: nil,
 			},
-			expectedMetrics: map[string]model.Metric{
+			expectedMetrics: map[string]*model.Metric{
 				"some": {
 					ID:    "some",
 					MType: model.Counter,
@@ -77,7 +77,7 @@ func TestUpdate(t *testing.T) {
 				Delta: nil,
 				Value: helper.NewFloat64(t, 5),
 			},
-			expectedMetrics: map[string]model.Metric{
+			expectedMetrics: map[string]*model.Metric{
 				"some": {
 					ID:    "some",
 					MType: model.Gauge,
@@ -102,7 +102,7 @@ func TestUpdate(t *testing.T) {
 				Delta: nil,
 				Value: helper.NewFloat64(t, 8),
 			},
-			expectedMetrics: map[string]model.Metric{
+			expectedMetrics: map[string]*model.Metric{
 				"some": {
 					ID:    "some",
 					MType: model.Gauge,
@@ -133,7 +133,7 @@ func TestUpdate(t *testing.T) {
 				Delta: nil,
 				Value: helper.NewFloat64(t, 8),
 			},
-			expectedMetrics: map[string]model.Metric{
+			expectedMetrics: map[string]*model.Metric{
 				"some": {
 					ID:    "some",
 					MType: model.Gauge,
@@ -158,7 +158,7 @@ func TestUpdate(t *testing.T) {
 				Delta: helper.NewInt64(t, 8),
 				Value: nil,
 			},
-			expectedMetrics: map[string]model.Metric{
+			expectedMetrics: map[string]*model.Metric{
 				"some": {
 					ID:    "some",
 					MType: model.Counter,
@@ -295,7 +295,7 @@ func TestList(t *testing.T) {
 	// Test List method - it should not return an error
 	m, err := ms.List(context.Background())
 	require.NoError(t, err)
-	assert.Equal(t, map[string]model.Metric{
+	assert.Equal(t, map[string]*model.Metric{
 		"some": {
 			ID:    "some",
 			MType: model.Counter,
@@ -316,7 +316,7 @@ func TestUpdates(t *testing.T) {
 		name            string
 		initialMetrics  map[string]model.Metric
 		updatedMetrics  []model.Metric
-		expectedMetrics map[string]model.Metric
+		expectedMetrics map[string]*model.Metric
 	}{
 		{
 			name:           "add counter metrics to empty map",
@@ -335,7 +335,7 @@ func TestUpdates(t *testing.T) {
 					Value: nil,
 				},
 			},
-			expectedMetrics: map[string]model.Metric{
+			expectedMetrics: map[string]*model.Metric{
 				"some": {
 					ID:    "some",
 					MType: model.Counter,
@@ -374,7 +374,7 @@ func TestUpdates(t *testing.T) {
 					Value: helper.NewFloat64(t, 12),
 				},
 			},
-			expectedMetrics: map[string]model.Metric{
+			expectedMetrics: map[string]*model.Metric{
 				"some": {
 					ID:    "some",
 					MType: model.Counter,
@@ -425,7 +425,7 @@ func TestUpdates(t *testing.T) {
 					Value: nil,
 				},
 			},
-			expectedMetrics: map[string]model.Metric{
+			expectedMetrics: map[string]*model.Metric{
 				"some": {
 					ID:    "some",
 					MType: model.Counter,
@@ -470,7 +470,7 @@ func TestUpdates(t *testing.T) {
 					Value: helper.NewFloat64(t, 20),
 				},
 			},
-			expectedMetrics: map[string]model.Metric{
+			expectedMetrics: map[string]*model.Metric{
 				"some": {
 					ID:    "some",
 					MType: model.Gauge,
@@ -527,7 +527,7 @@ func TestUpdates(t *testing.T) {
 					Value: helper.NewFloat64(t, 25),
 				},
 			},
-			expectedMetrics: map[string]model.Metric{
+			expectedMetrics: map[string]*model.Metric{
 				"counter1": {
 					ID:    "counter1",
 					MType: model.Counter,

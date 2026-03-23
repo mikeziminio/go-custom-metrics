@@ -21,7 +21,7 @@ func (s *MemStorage) Restore(_ context.Context) error {
 		return fmt.Errorf("failed to restore: %w", err)
 	}
 
-	metricMap := make(map[string]model.Metric)
+	metricMap := make(map[string]*model.Metric)
 	for _, m := range metricSlice {
 		metricMap[m.ID] = m
 	}

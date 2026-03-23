@@ -7,7 +7,6 @@ package memstorage
 import (
 	"context"
 	"fmt"
-	"maps"
 	"sync"
 
 	"go.uber.org/zap"
@@ -18,7 +17,7 @@ import (
 )
 
 type MemStorage struct {
-	metrics        map[string]model.Metric
+	metrics        map[string]*model.Metric
 	mu             sync.RWMutex
 	syncWithUpdate bool
 	syncer         *syncer.FileSyncer
@@ -40,7 +39,7 @@ func New(syncWithUpdate bool, fileStoragePath string, logger *zap.Logger) (*MemS
 	s := MemStorage{
 		syncWithUpdate: syncWithUpdate,
 		syncer:         snc,
-		metrics:        make(map[string]model.Metric),
+		metrics:        make(map[string]*model.Metric),
 		logger:         logger,
 	}
 	return &s, nil
@@ -63,7 +62,7 @@ func (s *MemStorage) Update(ctx context.Context, m model.Metric) (*model.Metric,
 	if ok && m.MType == model.Counter {
 		*m.Delta += *current.Delta
 	}
-	s.metrics[m.ID] = m
+	s.metrics[m.ID] = &m
 	s.mu.Unlock()
 
 	if s.syncWithUpdate {
@@ -89,7 +88,7 @@ func (s *MemStorage) Updates(ctx context.Context, metrics []model.Metric) error 
 		if ok && m.MType == model.Counter {
 			*m.Delta += *current.Delta
 		}
-		s.metrics[m.ID] = m
+		s.metrics[m.ID] = &m
 	}
 	s.mu.Unlock()
 
@@ -108,14 +107,14 @@ func (s *MemStorage) Updates(ctx context.Context, metrics []model.Metric) error 
 //   - ctx: Context for the operation (ignored)
 //
 // Returns a copy of the metrics map or an error.
-func (s *MemStorage) List(_ context.Context) (map[string]model.Metric, error) {
+func (s *MemStorage) List(_ context.Context) (map[string]*model.Metric, error) {
 	// todo: next sprints
 	// Возвращает копию мапы с метриками - не самый оптимальный вариант,
 	// Но т.к. требования к структуре хранения метрик вероятно будет
 	// обновлено в следующих спринтах - для упрощения пока сделано так.
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return maps.Clone(s.metrics), nil
+	return s.metrics, nil
 }
 
 // Get retrieves a specific metric from memory.
@@ -133,7 +132,7 @@ func (s *MemStorage) Get(_ context.Context, metricType model.MetricType, metricN
 	if !ok || m.MType != metricType {
 		return nil, model.ErrMetricNotFound
 	}
-	return &m, nil
+	return m, nil
 }
 
 // Ping checks if the storage is alive (always returns nil).
