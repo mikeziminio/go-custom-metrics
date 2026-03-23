@@ -1,3 +1,7 @@
+// Package syncer provides file-based metric persistence.
+//
+// It offers a FileSyncer struct that handles saving and loading metrics
+// to/from a JSON file with configurable file permissions.
 package syncer
 
 import (
@@ -14,11 +18,21 @@ const (
 	StorageFileMode = 0600
 )
 
+// FileSyncer handles file-based metric persistence.
+//
+// It can restore metrics from a file and sync metrics to a file.
 type FileSyncer struct {
 	fileStoragePath string
 	logger          *zap.Logger
 }
 
+// New creates a new FileSyncer instance.
+//
+// Parameters:
+//   - fileStoragePath: Path to the file for persistence
+//   - logger: Logger instance
+//
+// Returns a new FileSyncer.
 func New(fileStoragePath string, logger *zap.Logger) *FileSyncer {
 	return &FileSyncer{
 		fileStoragePath: fileStoragePath,
@@ -28,13 +42,16 @@ func New(fileStoragePath string, logger *zap.Logger) *FileSyncer {
 	}
 }
 
-func (s *FileSyncer) Restore() ([]model.Metric, error) {
+// Restore loads metrics from the file.
+//
+// Returns a slice of metrics and an error if file reading or parsing fails.
+func (s *FileSyncer) Restore() ([]*model.Metric, error) {
 	data, err := os.ReadFile(s.fileStoragePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to restore from file: %w", err)
 	}
 
-	var metricSlice []model.Metric
+	var metricSlice []*model.Metric
 
 	err = json.Unmarshal(data, &metricSlice)
 	if err != nil {
@@ -44,7 +61,13 @@ func (s *FileSyncer) Restore() ([]model.Metric, error) {
 	return metricSlice, nil
 }
 
-func (s *FileSyncer) Sync(metricSlice []model.Metric) error {
+// Sync saves metrics to the file in JSON format.
+//
+// Parameters:
+//   - metricSlice: Slice of metrics to save to file
+//
+// Returns an error if marshaling or writing to file fails.
+func (s *FileSyncer) Sync(metricSlice []*model.Metric) error {
 	data, err := json.Marshal(metricSlice)
 	if err != nil {
 		return fmt.Errorf("failed to marshal metrics: %w", err)

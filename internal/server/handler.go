@@ -8,13 +8,32 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 
+	"github.com/mikeziminio/go-custom-metrics/internal/ip"
 	"github.com/mikeziminio/go-custom-metrics/internal/model"
 )
 
+// Update handles HTTP POST /value request to update a single metric.
+//
+// Parameters:
+//   - res: HTTP response writer
+//   - req: HTTP request containing metric data in JSON body
+//
+// It reads the metric from request body, updates it in storage,
+// and logs an audit event if enabled.
+//
+//	@Tags		Metrics
+//	@Summary	Обновление метрики
+//	@ID			updateMetric
+//	@Param		metric	body		updateReqSchema	true	"Данные метрики"
+//	@Success	200		{object}	model.Metric	"Метрика обновлена"
+//	@Failure	400		{string}	string			"Некорректный тип метрики или неверный формат данных"
+//	@Failure	500		{string}	string			"Внутренняя ошибка сервера"
+//	@Router		/update [post]
 func (a *APIServer) Update(res http.ResponseWriter, req *http.Request) {
 	body, err := io.ReadAll(req.Body)
 	if err != nil {
@@ -50,6 +69,19 @@ func (a *APIServer) Update(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	// Log audit event
+	if a.auditLogger != nil {
+		ipAddress := ip.ExtractIPAddress(req)
+		event := AuditEvent{
+			Timestamp: time.Now().Unix(),
+			Metrics:   []string{fmt.Sprintf("%s:%s", data.MType, data.ID)},
+			IPAddress: ipAddress,
+		}
+		if err := a.auditLogger.Log(req.Context(), event); err != nil {
+			a.logger.Error("Failed to log audit event", zap.Error(err))
+		}
+	}
+
 	resData, err := json.Marshal(m)
 	if err != nil {
 		a.handleInternalServerError(res, fmt.Errorf("failed to marshal response: %w", err))
@@ -64,6 +96,23 @@ func (a *APIServer) Update(res http.ResponseWriter, req *http.Request) {
 	}
 }
 
+// Updates handles HTTP POST /updates request to update multiple metrics.
+//
+// Parameters:
+//   - res: HTTP response writer
+//   - req: HTTP request containing metrics in JSON body
+//
+// It reads metrics from request body and updates them in storage in bulk,
+// then logs an audit event if enabled.
+//
+//	@Tags		Metrics
+//	@Summary	Массовое обновление метрик
+//	@ID			updateMetrics
+//	@Param		metrics	body		updatesReqSchema	true	"Список метрик"
+//	@Success	200		{string}	string				"OK"
+//	@Failure	400		{string}	string				"Некорректный тип метрики или неверный формат данных"
+//	@Failure	500		{string}	string				"Внутренняя ошибка сервера"
+//	@Router		/updates [post]
 func (a *APIServer) Updates(res http.ResponseWriter, req *http.Request) {
 	body, err := io.ReadAll(req.Body)
 	if err != nil {
@@ -104,9 +153,45 @@ func (a *APIServer) Updates(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	// Log audit event
+	if a.auditLogger != nil {
+		ipAddress := ip.ExtractIPAddress(req)
+		metricNames := make([]string, 0, len(data))
+		for _, d := range data {
+			metricNames = append(metricNames, fmt.Sprintf("%s:%s", d.MType, d.ID))
+		}
+		event := AuditEvent{
+			Timestamp: time.Now().Unix(),
+			Metrics:   metricNames,
+			IPAddress: ipAddress,
+		}
+		if err := a.auditLogger.Log(req.Context(), event); err != nil {
+			a.logger.Error("Failed to log audit event", zap.Error(err))
+		}
+	}
+
 	res.WriteHeader(http.StatusOK)
 }
 
+// UpdateByParams handles HTTP POST /update/{metricType}/{metricName}/{value} request.
+//
+// Parameters:
+//   - res: HTTP response writer
+//   - req: HTTP request with metric parameters in URL path
+//
+// It extracts metric parameters from URL and updates the metric in storage,
+// then logs an audit event if enabled.
+//
+//	@Tags		Metrics
+//	@Summary	Обновление метрики по параметрам URL
+//	@ID			updateMetricByParams
+//	@Param		metricType	path		string	true	"Тип метрики (counter или gauge)"
+//	@Param		metricName	path		string	true	"Имя метрики"
+//	@Param		value		path		string	true	"Значение метрики"
+//	@Success	200			{string}	string	"OK"
+//	@Failure	400			{string}	string	"Некорректный тип метрики или неверный формат значения"
+//	@Failure	500			{string}	string	"Внутренняя ошибка сервера"
+//	@Router		/update/{metricType}/{metricName}/{value} [post]
 func (a *APIServer) UpdateByParams(res http.ResponseWriter, req *http.Request) {
 	mt := chi.URLParam(req, "metricType")
 	metricType, err := model.NewMetricTypeFromString(mt)
@@ -154,9 +239,38 @@ func (a *APIServer) UpdateByParams(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	// Log audit event
+	if a.auditLogger != nil {
+		ipAddress := ip.ExtractIPAddress(req)
+		event := AuditEvent{
+			Timestamp: time.Now().Unix(),
+			Metrics:   []string{fmt.Sprintf("%s:%s", metricType, metricName)},
+			IPAddress: ipAddress,
+		}
+		if err := a.auditLogger.Log(req.Context(), event); err != nil {
+			a.logger.Error("Failed to log audit event", zap.Error(err))
+		}
+	}
+
 	res.WriteHeader(http.StatusOK)
 }
 
+// Get handles HTTP POST /value request to retrieve a single metric.
+//
+// Parameters:
+//   - res: HTTP response writer
+//   - req: HTTP request containing metric type and name in JSON body
+//
+// It reads metric type and name from request body and returns the value.
+//
+//	@Tags		Metrics
+//	@Summary	Получение метрики
+//	@ID			getMetric
+//	@Param		metric	body		getReqSchema	true	"Идентификатор метрики"
+//	@Success	200		{object}	model.Metric	"Метрика найдена"
+//	@Failure	404		{string}	string			"Метрика не найдена"
+//	@Failure	500		{string}	string			"Внутренняя ошибка сервера"
+//	@Router		/value [post]
 func (a *APIServer) Get(res http.ResponseWriter, req *http.Request) {
 	body, err := io.ReadAll(req.Body)
 	if err != nil {
@@ -169,8 +283,7 @@ func (a *APIServer) Get(res http.ResponseWriter, req *http.Request) {
 	err = json.Unmarshal(body, &data)
 	if err != nil {
 		http.Error(res, fmt.Sprintf("failed to validate request body: %v", err),
-			http.StatusBadRequest,
-		)
+			http.StatusBadRequest)
 		return
 	}
 
@@ -200,6 +313,24 @@ func (a *APIServer) Get(res http.ResponseWriter, req *http.Request) {
 	}
 }
 
+// GetByParams handles HTTP GET /value/{metricType}/{metricName} request.
+//
+// Parameters:
+//   - res: HTTP response writer
+//   - req: HTTP request with metric parameters in URL path
+//
+// It extracts metric parameters from URL and returns the value as plain text.
+//
+//	@Tags		Metrics
+//	@Summary	Получение метрики по параметрам URL
+//	@ID			getMetricByParams
+//	@Param		metricType	path		string	true	"Тип метрики (counter или gauge)"
+//	@Param		metricName	path		string	true	"Имя метрики"
+//	@Success	200			{string}	string	"Значение метрики"
+//	@Failure	404			{string}	string	"Метрика не найдена"
+//	@Failure	400			{string}	string	"Некорректный тип метрики"
+//	@Failure	500			{string}	string	"Внутренняя ошибка сервера"
+//	@Router		/value/{metricType}/{metricName} [get]
 func (a *APIServer) GetByParams(res http.ResponseWriter, req *http.Request) {
 	mt := chi.URLParam(req, "metricType")
 	metricType, err := model.NewMetricTypeFromString(mt)
@@ -238,6 +369,20 @@ func (a *APIServer) GetByParams(res http.ResponseWriter, req *http.Request) {
 	}
 }
 
+// List handles HTTP GET / request to list all metrics.
+//
+// Parameters:
+//   - res: HTTP response writer
+//   - req: HTTP request
+//
+// It returns metrics in plain text format with id and value.
+//
+//	@Tags		Metrics
+//	@Summary	Список всех метрик
+//	@ID			listMetrics
+//	@Success	200	{string}	string	"Список метрик в HTML формате"
+//	@Failure	500	{string}	string	"Внутренняя ошибка сервера"
+//	@Router		/ [get]
 func (a *APIServer) List(res http.ResponseWriter, req *http.Request) {
 	var b bytes.Buffer
 	metrics, err := a.storage.List(req.Context())
@@ -264,6 +409,20 @@ func (a *APIServer) List(res http.ResponseWriter, req *http.Request) {
 	}
 }
 
+// Ping handles HTTP GET /ping health check request.
+//
+// Parameters:
+//   - res: HTTP response writer
+//   - req: HTTP request
+//
+// It returns status 200 if storage is reachable.
+//
+//	@Tags		Info
+//	@Summary	Запрос состояния сервиса
+//	@ID			infoPing
+//	@Success	200	{string}	string	"OK"
+//	@Failure	500	{string}	string	"Внутренняя ошибка"
+//	@Router		/ping [get]
 func (a *APIServer) Ping(res http.ResponseWriter, req *http.Request) {
 	err := a.storage.Ping(req.Context())
 	if err != nil {

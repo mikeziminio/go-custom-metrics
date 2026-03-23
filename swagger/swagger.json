@@ -1,0 +1,440 @@
+{
+    "components": {
+        "schemas": {
+            "model.Metric": {
+                "properties": {
+                    "delta": {
+                        "type": "integer"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "$ref": "#/components/schemas/model.MetricType"
+                    },
+                    "value": {
+                        "type": "number"
+                    }
+                },
+                "type": "object"
+            },
+            "model.MetricType": {
+                "enum": [
+                    "counter",
+                    "gauge"
+                ],
+                "type": "string",
+                "x-enum-varnames": [
+                    "Counter",
+                    "Gauge"
+                ]
+            },
+            "server.getReqSchema": {
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "$ref": "#/components/schemas/model.MetricType"
+                    }
+                },
+                "type": "object"
+            },
+            "server.updateReqSchema": {
+                "properties": {
+                    "delta": {
+                        "type": "integer"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "$ref": "#/components/schemas/model.MetricType"
+                    },
+                    "value": {
+                        "type": "number"
+                    }
+                },
+                "type": "object"
+            }
+        }
+    },
+    "info": {
+        "title": "",
+        "version": ""
+    },
+    "externalDocs": {
+        "description": "",
+        "url": ""
+    },
+    "paths": {
+        "/": {
+            "get": {
+                "operationId": "listMetrics",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "description": "Список метрик в HTML формате"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "description": "Внутренняя ошибка сервера"
+                    }
+                },
+                "summary": "Список всех метрик",
+                "tags": [
+                    "Metrics"
+                ]
+            }
+        },
+        "/ping": {
+            "get": {
+                "operationId": "infoPing",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "description": "Внутренняя ошибка"
+                    }
+                },
+                "summary": "Запрос состояния сервиса",
+                "tags": [
+                    "Info"
+                ]
+            }
+        },
+        "/update": {
+            "post": {
+                "operationId": "updateMetric",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/server.updateReqSchema",
+                                "summary": "metric",
+                                "description": "Данные метрики"
+                            }
+                        }
+                    },
+                    "description": "Данные метрики",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/model.Metric"
+                                }
+                            }
+                        },
+                        "description": "Метрика обновлена"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "description": "Некорректный тип метрики или неверный формат данных"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "description": "Внутренняя ошибка сервера"
+                    }
+                },
+                "summary": "Обновление метрики",
+                "tags": [
+                    "Metrics"
+                ]
+            }
+        },
+        "/update/{metricType}/{metricName}/{value}": {
+            "post": {
+                "operationId": "updateMetricByParams",
+                "parameters": [
+                    {
+                        "description": "Тип метрики (counter или gauge)",
+                        "in": "path",
+                        "name": "metricType",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Имя метрики",
+                        "in": "path",
+                        "name": "metricName",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Значение метрики",
+                        "in": "path",
+                        "name": "value",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "description": "Некорректный тип метрики или неверный формат значения"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "description": "Внутренняя ошибка сервера"
+                    }
+                },
+                "summary": "Обновление метрики по параметрам URL",
+                "tags": [
+                    "Metrics"
+                ]
+            }
+        },
+        "/updates": {
+            "post": {
+                "operationId": "updateMetrics",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "items": {
+                                    "$ref": "#/components/schemas/server.updateReqSchema"
+                                },
+                                "title": "metrics",
+                                "type": "array"
+                            }
+                        }
+                    },
+                    "description": "Список метрик",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "description": "Некорректный тип метрики или неверный формат данных"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "description": "Внутренняя ошибка сервера"
+                    }
+                },
+                "summary": "Массовое обновление метрик",
+                "tags": [
+                    "Metrics"
+                ]
+            }
+        },
+        "/value": {
+            "post": {
+                "operationId": "getMetric",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/server.getReqSchema",
+                                "summary": "metric",
+                                "description": "Идентификатор метрики"
+                            }
+                        }
+                    },
+                    "description": "Идентификатор метрики",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/model.Metric"
+                                }
+                            }
+                        },
+                        "description": "Метрика найдена"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "description": "Метрика не найдена"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "description": "Внутренняя ошибка сервера"
+                    }
+                },
+                "summary": "Получение метрики",
+                "tags": [
+                    "Metrics"
+                ]
+            }
+        },
+        "/value/{metricType}/{metricName}": {
+            "get": {
+                "operationId": "getMetricByParams",
+                "parameters": [
+                    {
+                        "description": "Тип метрики (counter или gauge)",
+                        "in": "path",
+                        "name": "metricType",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Имя метрики",
+                        "in": "path",
+                        "name": "metricName",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "description": "Значение метрики"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "description": "Некорректный тип метрики"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "description": "Метрика не найдена"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "description": "Внутренняя ошибка сервера"
+                    }
+                },
+                "summary": "Получение метрики по параметрам URL",
+                "tags": [
+                    "Metrics"
+                ]
+            }
+        }
+    },
+    "openapi": "3.1.0"
+}

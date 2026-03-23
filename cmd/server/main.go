@@ -3,6 +3,9 @@ package main
 import (
 	"context"
 	stdlog "log"
+	// #nosec G108
+	// Profiling endpoint is intentionally exposed on /debug/pprof
+	_ "net/http/pprof"
 	"time"
 
 	"go.uber.org/zap"
@@ -56,12 +59,33 @@ func main() {
 		}
 	}
 
+	var auditLogger *server.AuditLogger
+	if c.AuditFile != "" || c.AuditURL != "" {
+		auditConfig := server.AuditConfig{
+			AuditFile: c.AuditFile,
+			AuditURL:  c.AuditURL,
+		}
+		auditLogger, err = server.NewAuditLogger(logger, auditConfig)
+		if err != nil {
+			logger.Fatal("failed to init audit logger", zap.Error(err))
+		}
+		defer func() {
+			if auditLogger != nil {
+				if err := auditLogger.Close(); err != nil {
+					logger.Error("failed to close audit logger", zap.Error(err))
+				}
+			}
+		}()
+	}
+
 	s := server.New(
 		c.Address,
 		time.Duration(float64(time.Second)*c.StoreInterval),
 		[]byte(c.HashKey),
 		storage,
 		logger,
+		auditLogger,
+		c.PprofAddress,
 	)
 	s.RegisterRoutes()
 	s.Run(ctx)

@@ -7,9 +7,8 @@ package server
 import (
 	"context"
 
-	mock "github.com/stretchr/testify/mock"
-
 	"github.com/mikeziminio/go-custom-metrics/internal/model"
+	mock "github.com/stretchr/testify/mock"
 )
 
 // NewMockStorage creates a new instance of MockStorage. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
@@ -114,23 +113,23 @@ func (_c *MockStorage_Get_Call) RunAndReturn(run func(ctx context.Context, metri
 }
 
 // List provides a mock function for the type MockStorage
-func (_mock *MockStorage) List(ctx context.Context) (map[string]model.Metric, error) {
+func (_mock *MockStorage) List(ctx context.Context) (map[string]*model.Metric, error) {
 	ret := _mock.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for List")
 	}
 
-	var r0 map[string]model.Metric
+	var r0 map[string]*model.Metric
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context) (map[string]model.Metric, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context) (map[string]*model.Metric, error)); ok {
 		return returnFunc(ctx)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context) map[string]model.Metric); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context) map[string]*model.Metric); ok {
 		r0 = returnFunc(ctx)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(map[string]model.Metric)
+			r0 = ret.Get(0).(map[string]*model.Metric)
 		}
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
@@ -165,12 +164,12 @@ func (_c *MockStorage_List_Call) Run(run func(ctx context.Context)) *MockStorage
 	return _c
 }
 
-func (_c *MockStorage_List_Call) Return(stringToMetric map[string]model.Metric, err error) *MockStorage_List_Call {
+func (_c *MockStorage_List_Call) Return(stringToMetric map[string]*model.Metric, err error) *MockStorage_List_Call {
 	_c.Call.Return(stringToMetric, err)
 	return _c
 }
 
-func (_c *MockStorage_List_Call) RunAndReturn(run func(ctx context.Context) (map[string]model.Metric, error)) *MockStorage_List_Call {
+func (_c *MockStorage_List_Call) RunAndReturn(run func(ctx context.Context) (map[string]*model.Metric, error)) *MockStorage_List_Call {
 	_c.Call.Return(run)
 	return _c
 }

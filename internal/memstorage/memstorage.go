@@ -1,3 +1,7 @@
+// Package memstorage provides in-memory storage for metrics.
+//
+// It supports concurrent access using RWMutex and can optionally sync
+// changes to a file. Implements the server.Storage interface.
 package memstorage
 
 import (
@@ -14,7 +18,7 @@ import (
 )
 
 type MemStorage struct {
-	metrics        map[string]model.Metric
+	metrics        map[string]*model.Metric
 	mu             sync.RWMutex
 	syncWithUpdate bool
 	syncer         *syncer.FileSyncer
@@ -23,30 +27,43 @@ type MemStorage struct {
 
 var _ server.Storage = (*MemStorage)(nil)
 
+// New creates a new MemStorage instance.
+//
+// Parameters:
+//   - syncWithUpdate: Whether to sync to file after each update
+//   - fileStoragePath: Path to the file for synchronization
+//   - logger: Logger instance
+//
+// Returns a new MemStorage and an error if file syncer initialization fails.
 func New(syncWithUpdate bool, fileStoragePath string, logger *zap.Logger) (*MemStorage, error) {
 	snc := syncer.New(fileStoragePath, logger)
 	s := MemStorage{
 		syncWithUpdate: syncWithUpdate,
 		syncer:         snc,
-		metrics:        make(map[string]model.Metric),
+		metrics:        make(map[string]*model.Metric),
 		logger:         logger,
 	}
 	return &s, nil
 }
 
+// Update updates a single metric in memory.
+//
+// Parameters:
+//   - ctx: Context for the operation
+//   - m: Metric to update (must have valid ID, MType, and either Delta or Value)
+//
+// Returns the updated metric or an error if sync fails.
 func (s *MemStorage) Update(ctx context.Context, m model.Metric) (*model.Metric, error) {
 	// todo: next sprint
 	// в текущем спринте не дается никаких требований на хранение метрик
 	// поэтому сейчас метрики типа Gauge перезатирают значение,
 	// а метрики типа Counter инкрементируют значение.
-	// Вероятно далее необходимо будет сохранять значение с конкретной
-	// временной меткой, но в рамках 1-го спринта это избыточно.
 	s.mu.Lock()
 	current, ok := s.metrics[m.ID]
 	if ok && m.MType == model.Counter {
 		*m.Delta += *current.Delta
 	}
-	s.metrics[m.ID] = m
+	s.metrics[m.ID] = &m
 	s.mu.Unlock()
 
 	if s.syncWithUpdate {
@@ -58,6 +75,13 @@ func (s *MemStorage) Update(ctx context.Context, m model.Metric) (*model.Metric,
 	return &m, nil
 }
 
+// Updates updates multiple metrics in memory.
+//
+// Parameters:
+//   - ctx: Context for the operation
+//   - metrics: Slice of metrics to update
+//
+// Returns an error if sync fails.
 func (s *MemStorage) Updates(ctx context.Context, metrics []model.Metric) error {
 	s.mu.Lock()
 	for _, m := range metrics {
@@ -65,7 +89,7 @@ func (s *MemStorage) Updates(ctx context.Context, metrics []model.Metric) error 
 		if ok && m.MType == model.Counter {
 			*m.Delta += *current.Delta
 		}
-		s.metrics[m.ID] = m
+		s.metrics[m.ID] = &m
 	}
 	s.mu.Unlock()
 
@@ -78,16 +102,26 @@ func (s *MemStorage) Updates(ctx context.Context, metrics []model.Metric) error 
 	return nil
 }
 
-func (s *MemStorage) List(_ context.Context) (map[string]model.Metric, error) {
-	// todo: next sprints
-	// Возвращает копию мапы с метриками - не самый оптимальный вариант,
-	// Но т.к. требования к структуре хранения метрик вероятно будет
-	// обновлено в следующих спринтах - для упрощения пока сделано так.
+// List returns a copy of all metrics from memory.
+//
+// Parameters:
+//   - ctx: Context for the operation (ignored)
+//
+// Returns a copy of the metrics map or an error.
+func (s *MemStorage) List(_ context.Context) (map[string]*model.Metric, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return maps.Clone(s.metrics), nil
 }
 
+// Get retrieves a specific metric from memory.
+//
+// Parameters:
+//   - ctx: Context for the operation (ignored)
+//   - metricType: Type of metric (counter or gauge)
+//   - metricName: ID of the metric to retrieve
+//
+// Returns the metric if found and type matches, or ErrMetricNotFound.
 func (s *MemStorage) Get(_ context.Context, metricType model.MetricType, metricName string) (*model.Metric, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -95,9 +129,15 @@ func (s *MemStorage) Get(_ context.Context, metricType model.MetricType, metricN
 	if !ok || m.MType != metricType {
 		return nil, model.ErrMetricNotFound
 	}
-	return &m, nil
+	return m, nil
 }
 
+// Ping checks if the storage is alive (always returns nil).
+//
+// Parameters:
+//   - ctx: Context for the operation (ignored)
+//
+// Returns nil (always successful).
 func (*MemStorage) Ping(_ context.Context) error {
 	return nil
 }

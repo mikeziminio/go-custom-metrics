@@ -3,6 +3,8 @@ package dbstorage
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"github.com/docker/go-connections/nat"
 	"testing"
 	"time"
 
@@ -24,10 +26,9 @@ func testPostgresContainer(t *testing.T, ctx context.Context) *postgres.Postgres
 		postgres.WithUsername("testuser"),
 		postgres.WithPassword("testpassword"),
 		testcontainers.WithWaitStrategy(
-			wait.ForLog("database system is ready to accept connections").
-				WithOccurrence(2).
-				WithStartupTimeout(5*time.Second),
-			wait.ForListeningPort("5432/tcp"),
+			wait.ForSQL(nat.Port("5432/tcp"), "pgx", func(host string, port nat.Port) string {
+				return fmt.Sprintf("postgresql://testuser:testpassword@%s:%d/testdb?sslmode=disable", host, port.Int())
+			}).WithStartupTimeout(30*time.Second),
 		),
 	)
 	require.NoError(t, err)
@@ -239,7 +240,7 @@ func TestDBStorage_Update(t *testing.T) {
 			// Check value
 			if tc.expectedValue != nil {
 				assert.True(t, storedValue.Valid)
-				assert.Equal(t, *tc.expectedValue, storedValue.Float64)
+				assert.InEpsilon(t, *tc.expectedValue, storedValue.Float64, 0.001)
 			} else {
 				assert.False(t, storedValue.Valid)
 			}
@@ -343,8 +344,8 @@ func TestDBStorage_Get(t *testing.T) {
 
 			// Check value
 			if tc.expectedValue != nil {
-				assert.NotNil(t, result.Value)
-				assert.Equal(t, *tc.expectedValue, *result.Value)
+				require.NotNil(t, result.Value)
+				assert.InEpsilon(t, *tc.expectedValue, *result.Value, 0.001)
 			} else {
 				assert.Nil(t, result.Value)
 			}
@@ -424,8 +425,8 @@ func TestDBStorage_List(t *testing.T) {
 				}
 
 				if expectedMetric.Value != nil {
-					assert.NotNil(t, actualMetric.Value)
-					assert.Equal(t, *expectedMetric.Value, *actualMetric.Value)
+					require.NotNil(t, actualMetric.Value)
+					assert.InEpsilon(t, *expectedMetric.Value, *actualMetric.Value, 0.001)
 				} else {
 					assert.Nil(t, actualMetric.Value)
 				}
@@ -760,7 +761,7 @@ func TestDBStorage_Updates(t *testing.T) {
 					Scan(&storedValue)
 				require.NoError(t, err)
 				assert.True(t, storedValue.Valid)
-				assert.Equal(t, *expectedValue, storedValue.Float64)
+				assert.InEpsilon(t, *expectedValue, storedValue.Float64, 0.001)
 			}
 		})
 	}

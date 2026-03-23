@@ -97,7 +97,7 @@ func TestRestoreSucceed(t *testing.T) {
 	testCases := []struct {
 		name            string
 		setupFile       func(*testing.T, string)
-		expectedMetrics map[string]model.Metric
+		expectedMetrics map[string]*model.Metric
 	}{
 		{
 			name: "восстановление из корректного файла",
@@ -122,7 +122,7 @@ func TestRestoreSucceed(t *testing.T) {
 				err = os.WriteFile(filename, content, 0600)
 				require.NoError(t, err)
 			},
-			expectedMetrics: map[string]model.Metric{
+			expectedMetrics: map[string]*model.Metric{
 				"counter1": {
 					ID:    "counter1",
 					MType: model.Counter,

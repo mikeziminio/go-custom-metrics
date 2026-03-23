@@ -66,6 +66,16 @@ tasks:
     cmds:
       - "go test -v -race ./..."
 
+  test-load:
+    desc: Run k6 load tests. You should run server-with-postgres before
+    cmds:
+      - "k6 run test-load.js"
+
+  pprof-heap:
+    desc: Save heap profile
+    cmds:
+      - "curl -s http://localhost:7070/debug/pprof/heap -o ./profile/{{.FILENAME}}.pprof"
+
   fmt:
     desc: Format and fix imports
     cmds:
@@ -111,3 +121,20 @@ tasks:
       - "task -l"
       - "echo Bin directory: $BIN"
     silent: true
+
+  doc:
+    desc: Generate Go documentation and serve it
+    cmds:
+      - "godoc -play -http=:6060 & sleep 2"
+      - "open http://localhost:6060/pkg/github.com/mikeziminio/go-custom-metrics/?m=all"
+
+  swag-prepare:
+    desc: Install latest swag to bin dir
+    cmds:
+      - "GOBIN=$BIN go install github.com/swaggo/swag/v2/cmd/swag@latest"
+
+  swag:
+     desc: Format swagger comments and update swagger.yaml
+     cmds:
+      - "$BIN/swag fmt  -d './internal/server,./internal/model' -g 'handler.go'"
+      - "$BIN/swag init --v3.1 -d './internal/server,./internal/model' -g 'handler.go' -o ./swagger/ -ot 'json,yaml'"
