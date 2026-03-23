@@ -12,9 +12,11 @@ import (
 )
 
 type structInfo struct {
-	Name   string
-	Fields []fieldInfo
-	Doc    string
+	Name     string
+	Fields   []fieldInfo
+	Doc      string
+	HasReset bool
+	types    map[string]struct{}
 }
 
 type fieldInfo struct {
@@ -114,8 +116,35 @@ func findPackagesWithResetComments(path string) (map[string][]structInfo, error)
 func processPackage(dirPath string, files []string, result map[string][]structInfo) error {
 	fset := token.NewFileSet()
 
-	var structs []structInfo
+	// First pass: collect all struct names in the package
+	allStructTypes := make(map[string]struct{})
+	for _, file := range files {
+		node, err := parser.ParseFile(fset, file, nil, parser.ParseComments)
+		if err != nil {
+			continue
+		}
 
+		for _, decl := range node.Decls {
+			genDecl, ok := decl.(*ast.GenDecl)
+			if !ok {
+				continue
+			}
+
+			for _, spec := range genDecl.Specs {
+				typeSpec, ok := spec.(*ast.TypeSpec)
+				if !ok {
+					continue
+				}
+
+				if _, ok := typeSpec.Type.(*ast.StructType); ok {
+					allStructTypes[typeSpec.Name.Name] = struct{}{}
+				}
+			}
+		}
+	}
+
+	// Second pass: extract structs with generate:reset comment
+	var structs []structInfo
 	for _, file := range files {
 		node, err := parser.ParseFile(fset, file, nil, parser.ParseComments)
 		if err != nil {
@@ -151,7 +180,7 @@ func processPackage(dirPath string, files []string, result map[string][]structIn
 					continue
 				}
 
-				structs = append(structs, extractStructInfo(typeSpec.Name.Name, structType))
+				structs = append(structs, extractStructInfo(typeSpec.Name.Name, structType, allStructTypes))
 			}
 		}
 	}
@@ -178,7 +207,7 @@ func hasGenerateResetComment(comment *ast.CommentGroup) bool {
 	return false
 }
 
-func extractStructInfo(name string, structType *ast.StructType) structInfo {
+func extractStructInfo(name string, structType *ast.StructType, types map[string]struct{}) structInfo {
 	var fields []fieldInfo
 
 	if structType.Fields != nil {
@@ -212,8 +241,10 @@ func extractStructInfo(name string, structType *ast.StructType) structInfo {
 	}
 
 	return structInfo{
-		Name:   name,
-		Fields: fields,
+		Name:     name,
+		Fields:   fields,
+		HasReset: false,
+		types:    types,
 	}
 }
 
@@ -268,7 +299,7 @@ var resetFileTemplate = template.Must(template.New("").Parse(resetFileTemplateSr
 func generateResetFile(pkgName string, structs []structInfo) (string, error) {
 	resetMethods := make([]string, 0, len(structs))
 	for _, s := range structs {
-		resetMethod, err := generateResetMethod(s)
+		resetMethod, err := generateResetMethod(s, s.types)
 		if err != nil {
 			// todo: добавить логирование (!)
 			continue
@@ -314,10 +345,10 @@ func (rs *{{.StructName}}) Reset() {
 
 var resetMethodTemplate = template.Must(template.New("").Parse(resetMethodTemplateSrc))
 
-func generateResetMethod(s structInfo) (string, error) {
+func generateResetMethod(s structInfo, structTypes map[string]struct{}) (string, error) {
 	var resetFields = make([]string, 0, len(s.Fields))
 	for _, f := range s.Fields {
-		resetField, err := generateResetField(f)
+		resetField, err := generateResetField(f, structTypes)
 		if err != nil {
 			// TODO: логирование или брейк ?
 			continue
@@ -340,22 +371,39 @@ func generateResetMethod(s structInfo) (string, error) {
 	return sb.String(), nil
 }
 
-func generateResetField(f fieldInfo) (string, error) {
+func generateResetField(f fieldInfo, structTypes map[string]struct{}) (string, error) {
 	var sb strings.Builder
 
 	if f.IsPtr {
-		fmt.Fprintf(&sb, "if rs.%s != nil {\n", f.Name)
-		fmt.Fprintf(&sb, "\t*rs.%s = %s\n", f.Name, getZeroValue(f.PointTo))
-		fmt.Fprintf(&sb, "}\n")
+		if isStructType(f.PointTo, structTypes) {
+			fmt.Fprintf(&sb, "if rs.%s != nil {\n", f.Name)
+			fmt.Fprintf(&sb, "\tif resetter, ok := (*rs.%s).(interface{ Reset() }); ok {\n", f.Name)
+			fmt.Fprintf(&sb, "\t\tresetter.Reset()\n")
+			fmt.Fprintf(&sb, "\t}\n")
+			fmt.Fprintf(&sb, "}\n")
+		} else {
+			fmt.Fprintf(&sb, "if rs.%s != nil {\n", f.Name)
+			fmt.Fprintf(&sb, "\t*rs.%s = %s\n", f.Name, getZeroValue(f.PointTo))
+			fmt.Fprintf(&sb, "}\n")
+		}
 	} else if f.IsSlice {
 		fmt.Fprintf(&sb, "rs.%s = rs.%s[:0]\n", f.Name, f.Name)
 	} else if f.IsMap {
 		fmt.Fprintf(&sb, "clear(rs.%s)\n", f.Name)
+	} else if f.IsStruct && isStructType(f.Name, structTypes) {
+		fmt.Fprintf(&sb, "if resetter, ok := rs.%s.(interface{ Reset() }); ok {\n", f.Name)
+		fmt.Fprintf(&sb, "\tresetter.Reset()\n")
+		fmt.Fprintf(&sb, "}\n")
 	} else {
 		fmt.Fprintf(&sb, "rs.%s = %s\n", f.Name, getZeroValue(f.Type))
 	}
 
 	return sb.String(), nil
+}
+
+func isStructType(typ string, structTypes map[string]struct{}) bool {
+	_, ok := structTypes[typ]
+	return ok
 }
 
 func getZeroValue(typ string) string {
@@ -364,9 +412,9 @@ func getZeroValue(typ string) string {
 	}
 
 	switch {
-	case strings.HasPrefix(typ, "int"),
-		strings.HasPrefix(typ, "uint"),
-		strings.HasPrefix(typ, "float"):
+	case typ == "int", typ == "int8", typ == "int16", typ == "int32", typ == "int64",
+		typ == "uint", typ == "uint8", typ == "uint16", typ == "uint32", typ == "uint64",
+		typ == "float32", typ == "float64":
 		return "0"
 	case typ == "bool":
 		return "false"
@@ -378,13 +426,10 @@ func getZeroValue(typ string) string {
 		return "nil"
 	case strings.HasPrefix(typ, "map"):
 		return "nil"
+	case typ == "struct{}":
+		return "{}"
 	default:
-		if typ == "struct{}" {
-			return "{}"
-		}
-
-		// todo: проверить что не дойдёт до этого
-		return "unknown type"
+		return "nil"
 	}
 }
 
