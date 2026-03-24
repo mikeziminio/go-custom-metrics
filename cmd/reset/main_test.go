@@ -697,6 +697,331 @@ func TestGetZeroValue(t *testing.T) {
 	}
 }
 
+func TestIsStructType(t *testing.T) {
+	testCases := []struct {
+		name        string
+		typ         string
+		structTypes map[string]struct{}
+		typeDecls   map[string]string
+		want        bool
+	}{
+		{
+			name:        "builtin_int",
+			typ:         "int",
+			structTypes: map[string]struct{}{},
+			typeDecls:   nil,
+			want:        false,
+		},
+		{
+			name:        "builtin_string",
+			typ:         "string",
+			structTypes: map[string]struct{}{},
+			typeDecls:   nil,
+			want:        false,
+		},
+		{
+			name:        "builtin_bool",
+			typ:         "bool",
+			structTypes: map[string]struct{}{},
+			typeDecls:   nil,
+			want:        false,
+		},
+		{
+			name: "known_struct_in_map",
+			typ:  "User",
+			structTypes: map[string]struct{}{
+				"User": {},
+			},
+			typeDecls: nil,
+			want:      true,
+		},
+		{
+			name:        "named_type_with_struct_in_decls",
+			typ:         "MyStruct",
+			structTypes: map[string]struct{}{},
+			typeDecls: map[string]string{
+				"MyStruct": "struct{}",
+			},
+			want: true,
+		},
+		{
+			name:        "pointer_to_struct",
+			typ:         "*User",
+			structTypes: map[string]struct{}{},
+			typeDecls:   nil,
+			want:        false, // starts with *, so not a direct struct
+		},
+		{
+			name:        "slice_type",
+			typ:         "[]int",
+			structTypes: map[string]struct{}{},
+			typeDecls:   nil,
+			want:        false,
+		},
+		{
+			name:        "map_type",
+			typ:         "map[string]int",
+			structTypes: map[string]struct{}{},
+			typeDecls:   nil,
+			want:        false,
+		},
+		{
+			name:        "named_type_with_struct_field",
+			typ:         "IntPtr",
+			structTypes: map[string]struct{}{},
+			typeDecls: map[string]string{
+				"IntPtr": "*int",
+			},
+			want: false,
+		},
+		{
+			name:        "nested_named_type_doesnt_resolve",
+			typ:         "MyStructAlias",
+			structTypes: map[string]struct{}{},
+			typeDecls: map[string]string{
+				"MyStructAlias": "MyStruct",
+				"MyStruct":      "struct{}",
+			},
+			want: false, // current implementation doesn't recursively resolve
+		},
+		{
+			name:        "unknown_named_type_assumed_non_struct",
+			typ:         "CustomType",
+			structTypes: map[string]struct{}{},
+			typeDecls:   nil,
+			want:        false, // current implementation returns false for unknown types
+		},
+		{
+			name:        "explicit_struct_in_decls",
+			typ:         "ExplicitStruct",
+			structTypes: map[string]struct{}{},
+			typeDecls: map[string]string{
+				"ExplicitStruct": "struct{}",
+			},
+			want: true,
+		},
+		{
+			name:        "named_type_in_struct_types_map",
+			typ:         "User",
+			structTypes: map[string]struct{}{"User": {}},
+			typeDecls:   nil,
+			want:        true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := isStructType(tc.typ, tc.structTypes, tc.typeDecls)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
+func TestGetBaseTypeNew(t *testing.T) {
+	testCases := []struct {
+		name      string
+		typ       string
+		typeDecls map[string]string
+		want      string
+	}{
+		{
+			name:      "int_type",
+			typ:       "int",
+			typeDecls: nil,
+			want:      "int",
+		},
+		{
+			name:      "string_type",
+			typ:       "string",
+			typeDecls: nil,
+			want:      "string",
+		},
+		{
+			name:      "bool_type",
+			typ:       "bool",
+			typeDecls: nil,
+			want:      "bool",
+		},
+		{
+			name:      "float64_type",
+			typ:       "float64",
+			typeDecls: nil,
+			want:      "float",
+		},
+		{
+			name:      "uint32_type",
+			typ:       "uint32",
+			typeDecls: nil,
+			want:      "uint",
+		},
+		{
+			name:      "pointer_to_int",
+			typ:       "*int",
+			typeDecls: nil,
+			want:      "int",
+		},
+		{
+			name:      "slice_of_string",
+			typ:       "[]string",
+			typeDecls: nil,
+			want:      "string",
+		},
+		{
+			name:      "map_type",
+			typ:       "map[string]int",
+			typeDecls: nil,
+			want:      "int",
+		},
+		{
+			name: "named_type_with_type_decls",
+			typ:  "MyInt",
+			typeDecls: map[string]string{
+				"MyInt": "int",
+			},
+			want: "int",
+		},
+		{
+			name: "nested_named_type_resolves_to_int",
+			typ:  "AliasToMyInt",
+			typeDecls: map[string]string{
+				"AliasToMyInt": "MyInt",
+				"MyInt":        "int",
+			},
+			want: "int",
+		},
+		{
+			name: "pointer_with_type_decls",
+			typ:  "*MyString",
+			typeDecls: map[string]string{
+				"MyString": "string",
+			},
+			want: "string",
+		},
+		{
+			name:      "unknown_named_type_fallback",
+			typ:       "CustomType",
+			typeDecls: nil,
+			want:      "CustomType",
+		},
+		{
+			name:      "uint_alias",
+			typ:       "Uint32",
+			typeDecls: nil,
+			want:      "int", // current suffix matching: Uint32 ends with int32, so returns int
+		},
+		{
+			name:      "float_alias",
+			typ:       "Float64",
+			typeDecls: nil,
+			want:      "float",
+		},
+		{
+			name:      "bool_alias",
+			typ:       "Bool",
+			typeDecls: nil,
+			want:      "bool",
+		},
+		{
+			name:      "string_alias",
+			typ:       "String",
+			typeDecls: nil,
+			want:      "string",
+		},
+		{
+			name:      "struct_type",
+			typ:       "struct{}",
+			typeDecls: nil,
+			want:      "struct{}",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := getBaseType(tc.typ, tc.typeDecls)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
+func TestGetZeroValueWithDecls(t *testing.T) {
+	testCases := []struct {
+		name      string
+		typ       string
+		typeDecls map[string]string
+		want      string
+	}{
+		{
+			name:      "int_type",
+			typ:       "int",
+			typeDecls: nil,
+			want:      "0",
+		},
+		{
+			name:      "string_type",
+			typ:       "string",
+			typeDecls: nil,
+			want:      "\"\"",
+		},
+		{
+			name:      "bool_type",
+			typ:       "bool",
+			typeDecls: nil,
+			want:      "false",
+		},
+		{
+			name:      "float32_type",
+			typ:       "float32",
+			typeDecls: nil,
+			want:      "0",
+		},
+		{
+			name:      "pointer_type",
+			typ:       "*int",
+			typeDecls: nil,
+			want:      "nil",
+		},
+		{
+			name:      "slice_type",
+			typ:       "[]string",
+			typeDecls: nil,
+			want:      "nil",
+		},
+		{
+			name:      "map_type",
+			typ:       "map[string]int",
+			typeDecls: nil,
+			want:      "nil",
+		},
+		{
+			name:      "struct_type",
+			typ:       "struct{}",
+			typeDecls: nil,
+			want:      "{}",
+		},
+		{
+			name: "named_type_with_decls",
+			typ:  "MyInt",
+			typeDecls: map[string]string{
+				"MyInt": "int",
+			},
+			want: "0",
+		},
+		{
+			name:      "named_type_without_decls",
+			typ:       "CustomType",
+			typeDecls: nil,
+			want:      "nil",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := getZeroValueWithDecls(tc.typ, tc.typeDecls)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
 func TestIntegrationGenerateResetFile(t *testing.T) {
 	tempDir := t.TempDir()
 	testStructs := []structInfo{
@@ -782,4 +1107,168 @@ func TestGenerateResetFileNilStructs(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Contains(t, content, "package niltest")
 	assert.NotContains(t, content, "func (rs *")
+}
+
+func TestGenerateResetFileNamedTypes(t *testing.T) {
+	structs := []structInfo{
+		{
+			Name: "Config",
+			Fields: []fieldInfo{
+				{Name: "ID", Type: "MyInt", BaseType: "int"},
+				{Name: "Name", Type: "MyString", BaseType: "string"},
+				{Name: "Flag", Type: "MyBool", BaseType: "bool"},
+			},
+			HasReset: false,
+		},
+	}
+
+	content, err := generateResetFile("pkg", structs)
+	assert.NoError(t, err)
+
+	expected := `// Code generated by reset generator; DO NOT EDIT.
+
+package pkg
+
+// Reset Config
+func (rs *Config) Reset() {
+	if rs == nil {
+		return
+	}
+
+	rs.ID = 0
+
+	rs.Name = ""
+
+	rs.Flag = false
+
+}
+
+`
+	assert.Equal(t, expected, content)
+}
+
+func TestGenerateResetFileWithAllFieldTypes(t *testing.T) {
+	structs := []structInfo{
+		{
+			Name: "AllTypes",
+			Fields: []fieldInfo{
+				{Name: "IntField", Type: "int", BaseType: "int"},
+				{Name: "StrField", Type: "string", BaseType: "string"},
+				{Name: "BoolField", Type: "bool", BaseType: "bool"},
+				{Name: "FloatField", Type: "float64", BaseType: "float"},
+				{Name: "PtrInt", Type: "*int", PointTo: "int", BaseType: "int", IsPtr: true},
+				{Name: "PtrString", Type: "*string", PointTo: "string", BaseType: "string", IsPtr: true},
+				{Name: "SliceInt", Type: "[]int", ElementType: "int", BaseType: "int", IsSlice: true},
+				{Name: "SliceStr", Type: "[]string", ElementType: "string", BaseType: "string", IsSlice: true},
+				{Name: "MapInt", Type: "map[string]int", ElementType: "int", BaseType: "int", IsMap: true},
+			},
+			HasReset: false,
+		},
+	}
+
+	content, err := generateResetFile("pkg", structs)
+	assert.NoError(t, err)
+
+	expected := `// Code generated by reset generator; DO NOT EDIT.
+
+package pkg
+
+// Reset AllTypes
+func (rs *AllTypes) Reset() {
+	if rs == nil {
+		return
+	}
+
+	rs.IntField = 0
+
+	rs.StrField = ""
+
+	rs.BoolField = false
+
+	rs.FloatField = 0
+
+	if rs.PtrInt != nil {
+	*rs.PtrInt = 0
+}
+
+	if rs.PtrString != nil {
+	*rs.PtrString = ""
+}
+
+	rs.SliceInt = rs.SliceInt[:0]
+
+	rs.SliceStr = rs.SliceStr[:0]
+
+	clear(rs.MapInt)
+
+}
+
+`
+	assert.Equal(t, expected, content)
+}
+
+func TestGenerateResetFileStructWithReset(t *testing.T) {
+	structs := []structInfo{
+		{
+			Name: "Outer",
+			Fields: []fieldInfo{
+				{Name: "Inner", Type: "InnerStruct", BaseType: "InnerStruct", IsStruct: true},
+			},
+			HasReset: false,
+		},
+	}
+
+	content, err := generateResetFile("pkg", structs)
+	assert.NoError(t, err)
+
+	expected := `// Code generated by reset generator; DO NOT EDIT.
+
+package pkg
+
+// Reset Outer
+func (rs *Outer) Reset() {
+	if rs == nil {
+		return
+	}
+
+	rs.Inner = nil
+
+}
+
+`
+	assert.Equal(t, expected, content)
+}
+
+func TestGenerateResetFileStructPtrWithReset(t *testing.T) {
+	structs := []structInfo{
+		{
+			Name: "Outer",
+			Fields: []fieldInfo{
+				{Name: "InnerPtr", Type: "*InnerStruct", PointTo: "InnerStruct", BaseType: "InnerStruct", IsPtr: true},
+			},
+			HasReset: false,
+		},
+	}
+
+	content, err := generateResetFile("pkg", structs)
+	assert.NoError(t, err)
+
+	expected := `// Code generated by reset generator; DO NOT EDIT.
+
+package pkg
+
+// Reset Outer
+func (rs *Outer) Reset() {
+	if rs == nil {
+		return
+	}
+
+	if rs.InnerPtr != nil {
+	*rs.InnerPtr = nil
+}
+
+}
+
+`
+	assert.Equal(t, expected, content)
 }

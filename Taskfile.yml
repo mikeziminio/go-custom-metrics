@@ -5,10 +5,10 @@ env:
 
 tasks:
   build:
-    desc: Build all
+    desc: Build all, specify args after --
     cmds:
-      - "go build -o $BIN/server ./cmd/server"
-      - "go build -o $BIN/agent ./cmd/agent"
+      - "go build -o $BIN/server ./cmd/server {{.CLI_ARGS}}"
+      - "go build -o $BIN/agent ./cmd/agent {{.CLI_ARGS}}"
 
   server:
     desc: Run server, specify args after --
