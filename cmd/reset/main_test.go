@@ -114,7 +114,7 @@ func TestFindPackagesWithResetComments(t *testing.T) {
 			name:    "single struct with generate:reset in comment group",
 			testDir: "single_struct_comment_group",
 			expect: map[string][]structInfo{
-				filepath.Join("testdata", "reset", "single_struct_comment_group"): {
+				filepath.Join("..", "..", "testdata", "reset", "single_struct_comment_group"): {
 					{
 						Name: "User",
 						Fields: []fieldInfo{
@@ -129,7 +129,7 @@ func TestFindPackagesWithResetComments(t *testing.T) {
 			name:    "single struct with generate:reset in doc comment",
 			testDir: "single_struct_doc_comment",
 			expect: map[string][]structInfo{
-				filepath.Join("testdata", "reset", "single_struct_doc_comment"): {
+				filepath.Join("..", "..", "testdata", "reset", "single_struct_doc_comment"): {
 					{
 						Name: "User",
 						Fields: []fieldInfo{
@@ -144,7 +144,7 @@ func TestFindPackagesWithResetComments(t *testing.T) {
 			name:    "multiple structs in one file",
 			testDir: "multiple_structs_one_file",
 			expect: map[string][]structInfo{
-				filepath.Join("testdata", "reset", "multiple_structs_one_file"): {
+				filepath.Join("..", "..", "testdata", "reset", "multiple_structs_one_file"): {
 					{
 						Name: "User",
 						Fields: []fieldInfo{
@@ -170,7 +170,7 @@ func TestFindPackagesWithResetComments(t *testing.T) {
 			name:    "mixed: some with comment, some without",
 			testDir: "mixed_with_without",
 			expect: map[string][]structInfo{
-				filepath.Join("testdata", "reset", "mixed_with_without"): {
+				filepath.Join("..", "..", "testdata", "reset", "mixed_with_without"): {
 					{
 						Name: "User",
 						Fields: []fieldInfo{
@@ -184,7 +184,7 @@ func TestFindPackagesWithResetComments(t *testing.T) {
 			name:    "multiple files in one package",
 			testDir: "multiple_files_package",
 			expect: map[string][]structInfo{
-				filepath.Join("testdata", "reset", "multiple_files_package"): {
+				filepath.Join("..", "..", "testdata", "reset", "multiple_files_package"): {
 					{
 						Name: "User",
 						Fields: []fieldInfo{
@@ -204,7 +204,7 @@ func TestFindPackagesWithResetComments(t *testing.T) {
 			name:    "nested directories",
 			testDir: "nested_dirs",
 			expect: map[string][]structInfo{
-				filepath.Join("testdata", "reset", "nested_dirs", "models"): {
+				filepath.Join("..", "..", "testdata", "reset", "nested_dirs", "models"): {
 					{
 						Name: "User",
 						Fields: []fieldInfo{
@@ -219,7 +219,7 @@ func TestFindPackagesWithResetComments(t *testing.T) {
 			name:    "struct with various field types",
 			testDir: "various_field_types",
 			expect: map[string][]structInfo{
-				filepath.Join("testdata", "reset", "various_field_types"): {
+				filepath.Join("..", "..", "testdata", "reset", "various_field_types"): {
 					{
 						Name: "Complex",
 						Fields: []fieldInfo{
@@ -238,7 +238,7 @@ func TestFindPackagesWithResetComments(t *testing.T) {
 			name:    "file with multiple comments in comment group",
 			testDir: "multiple_comments_group",
 			expect: map[string][]structInfo{
-				filepath.Join("testdata", "reset", "multiple_comments_group"): {
+				filepath.Join("..", "..", "testdata", "reset", "multiple_comments_group"): {
 					{
 						Name: "User",
 						Fields: []fieldInfo{
@@ -252,7 +252,7 @@ func TestFindPackagesWithResetComments(t *testing.T) {
 			name:    "file with syntax error should be skipped",
 			testDir: "syntax_error_file",
 			expect: map[string][]structInfo{
-				filepath.Join("testdata", "reset", "syntax_error_file"): {
+				filepath.Join("..", "..", "testdata", "reset", "syntax_error_file"): {
 					{
 						Name: "Valid",
 						Fields: []fieldInfo{
@@ -266,7 +266,7 @@ func TestFindPackagesWithResetComments(t *testing.T) {
 			name:    "only test files should be ignored",
 			testDir: "test_files_ignored",
 			expect: map[string][]structInfo{
-				filepath.Join("testdata", "reset", "test_files_ignored"): {
+				filepath.Join("..", "..", "testdata", "reset", "test_files_ignored"): {
 					{
 						Name: "MainStruct",
 						Fields: []fieldInfo{
@@ -280,7 +280,7 @@ func TestFindPackagesWithResetComments(t *testing.T) {
 			name:    "struct fields with different types",
 			testDir: "fields_different_types",
 			expect: map[string][]structInfo{
-				filepath.Join("testdata", "reset", "fields_different_types"): {
+				filepath.Join("..", "..", "testdata", "reset", "fields_different_types"): {
 					{
 						Name: "AllFields",
 						Fields: []fieldInfo{
@@ -298,7 +298,7 @@ func TestFindPackagesWithResetComments(t *testing.T) {
 			name:    "ignored directory .git should be skipped",
 			testDir: "ignored_git_dir",
 			expect: map[string][]structInfo{
-				filepath.Join("testdata", "reset", "ignored_git_dir", "models"): {
+				filepath.Join("..", "..", "testdata", "reset", "ignored_git_dir", "models"): {
 					{
 						Name: "User",
 						Fields: []fieldInfo{
@@ -310,7 +310,7 @@ func TestFindPackagesWithResetComments(t *testing.T) {
 		},
 	}
 
-	basePath := "testdata/reset"
+	basePath := "../../testdata/reset"
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			testPath := filepath.Join(basePath, tc.testDir)
