@@ -12,11 +12,12 @@ import (
 )
 
 type structInfo struct {
-	Name     string
-	Fields   []fieldInfo
-	Doc      string
-	HasReset bool
-	types    map[string]struct{}
+	Name      string
+	Fields    []fieldInfo
+	Doc       string
+	HasReset  bool
+	types     map[string]struct{}
+	typeDecls map[string]string
 }
 
 type fieldInfo struct {
@@ -27,6 +28,7 @@ type fieldInfo struct {
 	BaseType    string
 	IsPtr       bool
 	IsSlice     bool
+	IsArray     bool
 	IsMap       bool
 	IsStruct    bool
 }
@@ -117,7 +119,32 @@ func findPackagesWithResetComments(path string) (map[string][]structInfo, error)
 func processPackage(dirPath string, files []string, result map[string][]structInfo) error {
 	fset := token.NewFileSet()
 
-	// First pass: collect all struct names in the package
+	// Первый проход: собираем все объявления типов в пакете
+	allTypeDecls := make(map[string]string)
+	for _, file := range files {
+		node, err := parser.ParseFile(fset, file, nil, parser.ParseComments)
+		if err != nil {
+			continue
+		}
+
+		for _, decl := range node.Decls {
+			genDecl, ok := decl.(*ast.GenDecl)
+			if !ok {
+				continue
+			}
+
+			for _, spec := range genDecl.Specs {
+				typeSpec, ok := spec.(*ast.TypeSpec)
+				if !ok {
+					continue
+				}
+
+				allTypeDecls[typeSpec.Name.Name] = astExprToString(typeSpec.Type)
+			}
+		}
+	}
+
+	// Второй проход: собираем все имена структур в пакете
 	allStructTypes := make(map[string]struct{})
 	for _, file := range files {
 		node, err := parser.ParseFile(fset, file, nil, parser.ParseComments)
@@ -144,7 +171,7 @@ func processPackage(dirPath string, files []string, result map[string][]structIn
 		}
 	}
 
-	// Second pass: extract structs with generate:reset comment
+	// Третий проход: извлекаем структуры с комментарием generate:reset
 	var structs []structInfo
 	for _, file := range files {
 		node, err := parser.ParseFile(fset, file, nil, parser.ParseComments)
@@ -152,7 +179,7 @@ func processPackage(dirPath string, files []string, result map[string][]structIn
 			continue
 		}
 
-		// Check file-level comments (comments at top of file before package)
+		// Проверяем комментарии на уровне файла ( комментарии в начале файла перед package)
 		fileHasResetComment := hasGenerateResetComment(node.Doc)
 
 		for _, decl := range node.Decls {
@@ -172,16 +199,16 @@ func processPackage(dirPath string, files []string, result map[string][]structIn
 					continue
 				}
 
-				// Check declaration doc and type doc
+				// Проверяем документацию объявления и тип
 				declHasReset := hasGenerateResetComment(genDecl.Doc)
 				typeHasReset := hasGenerateResetComment(typeSpec.Doc)
 
-				// Also check if file-level comment has reset directive
+				// Также проверяем, есть ли комментарий с reset на уровне файла
 				if !fileHasResetComment && !declHasReset && !typeHasReset {
 					continue
 				}
 
-				structs = append(structs, extractStructInfo(typeSpec.Name.Name, structType, allStructTypes))
+				structs = append(structs, extractStructInfo(typeSpec.Name.Name, structType, allStructTypes, allTypeDecls))
 			}
 		}
 	}
@@ -208,7 +235,7 @@ func hasGenerateResetComment(comment *ast.CommentGroup) bool {
 	return false
 }
 
-func extractStructInfo(name string, structType *ast.StructType, types map[string]struct{}) structInfo {
+func extractStructInfo(name string, structType *ast.StructType, types map[string]struct{}, typeDecls map[string]string) structInfo {
 	var fields []fieldInfo
 
 	if structType.Fields != nil {
@@ -225,23 +252,26 @@ func extractStructInfo(name string, structType *ast.StructType, types map[string
 			case *ast.StarExpr:
 				fieldInfo.IsPtr = true
 				fieldInfo.PointTo = astExprToString(t.X)
-				fieldInfo.BaseType = getBaseType(fieldInfo.PointTo, nil)
+				fieldInfo.BaseType = getBaseType(fieldInfo.PointTo, typeDecls)
 			case *ast.ArrayType:
 				if t.Len == nil {
 					fieldInfo.IsSlice = true
 					fieldInfo.ElementType = astExprToString(t.Elt)
-					fieldInfo.BaseType = getBaseType(fieldInfo.ElementType, nil)
+					fieldInfo.BaseType = getBaseType(fieldInfo.ElementType, typeDecls)
+				} else {
+					fieldInfo.IsArray = true
+					fieldInfo.ElementType = astExprToString(t.Elt)
+					fieldInfo.BaseType = getBaseType(fieldInfo.ElementType, typeDecls)
 				}
 			case *ast.MapType:
 				fieldInfo.IsMap = true
 				fieldInfo.ElementType = astExprToString(t.Value)
-				fieldInfo.BaseType = getBaseType(fieldInfo.ElementType, nil)
+				fieldInfo.BaseType = getBaseType(fieldInfo.ElementType, typeDecls)
 			case *ast.StructType:
 				fieldInfo.IsStruct = true
-				fieldInfo.BaseType = getBaseType(fieldInfo.Type, nil)
+				fieldInfo.BaseType = getBaseType(fieldInfo.Type, typeDecls)
 			default:
-				// For basic identifier types (int, string, bool, etc.)
-				fieldInfo.BaseType = getBaseType(fieldInfo.Type, nil)
+				fieldInfo.BaseType = getBaseType(fieldInfo.Type, typeDecls)
 			}
 
 			fields = append(fields, fieldInfo)
@@ -249,10 +279,11 @@ func extractStructInfo(name string, structType *ast.StructType, types map[string
 	}
 
 	return structInfo{
-		Name:     name,
-		Fields:   fields,
-		HasReset: false,
-		types:    types,
+		Name:      name,
+		Fields:    fields,
+		HasReset:  false,
+		types:     types,
+		typeDecls: typeDecls,
 	}
 }
 
@@ -392,6 +423,8 @@ func generateResetField(f fieldInfo, structTypes map[string]struct{}) (string, e
 		}
 	} else if f.IsSlice {
 		fmt.Fprintf(&sb, "rs.%s = rs.%s[:0]\n", f.Name, f.Name)
+	} else if f.IsArray {
+		fmt.Fprintf(&sb, "rs.%s = %s{}\n", f.Name, f.Type)
 	} else if f.IsMap {
 		fmt.Fprintf(&sb, "clear(rs.%s)\n", f.Name)
 	} else if f.IsStruct && isStructType(f.Name, structTypes, nil) {
@@ -438,7 +471,13 @@ func getBaseType(typ string, typeDecls map[string]string) string {
 		return base
 	}
 
-	// Handle slice types
+	// Handle array types [N]T which should not be reduced to base type
+	// since arrays need special reset handling
+	if strings.HasPrefix(typ, "[") {
+		return typ
+	}
+
+	// Handle slice types []T
 	if strings.HasPrefix(typ, "[]") {
 		base := typ[2:]
 		// Resolve through typeDecls if available
@@ -485,19 +524,18 @@ func getBaseType(typ string, typeDecls map[string]string) string {
 		return "bool"
 	case typ == "string":
 		return "string"
+	case typ == "complex64", typ == "complex128":
+		return "complex"
+	case typ == "rune":
+		return "rune"
+	case typ == "byte":
+		return "byte"
+	case typ == "uintptr":
+		return "uintptr"
+	case typ == "struct{}":
+		return "struct{}"
 	default:
-		// For named types that don't match basic types, try suffix matching for aliases
-		// e.g., Uint32 -> uint, Float64 -> float, Bool -> bool, String -> string, MyInt -> int
-		typLower := strings.ToLower(typ)
-		
-		// Check if type contains a base type name
-		for _, base := range []string{"int", "uint", "float", "bool", "string"} {
-			if strings.Contains(typLower, base) {
-				return base
-			}
-		}
-		
-		return typ
+		return ""
 	}
 }
 
@@ -513,6 +551,14 @@ func getZeroValueByBaseType(baseType string) string {
 		return "false"
 	case "string":
 		return `""`
+	case "complex":
+		return "0 + 0i"
+	case "rune":
+		return "0"
+	case "byte":
+		return "0"
+	case "uintptr":
+		return "0"
 	case "struct{}":
 		return "{}"
 	default:
@@ -543,6 +589,37 @@ func getZeroValue(typ string) string {
 	// For pointer, slice, and map types, return nil
 	if strings.HasPrefix(typ, "*") || strings.HasPrefix(typ, "[]") || strings.HasPrefix(typ, "map[") {
 		return "nil"
+	}
+
+	// For array types [N]T, return zero value for that array type
+	if strings.HasPrefix(typ, "[") {
+		closingBracket := strings.Index(typ, "]")
+		if closingBracket > 0 {
+			elemType := typ[closingBracket+1:]
+			elemZero := getZeroValueByBaseType(getBaseType(elemType, nil))
+			// Extract array size from [N]T
+			arrayContent := typ[1:closingBracket]
+			// Parse the size (N) - handle both [5]int and [...]int
+			size := 0
+			if strings.Contains(arrayContent, "...") {
+				// [...]T - variable size, just use 2 elements for zero value
+				size = 2
+			} else {
+				// [N]T - fixed size
+				sizeStr := strings.TrimSpace(arrayContent)
+				fmt.Sscanf(sizeStr, "%d", &size)
+			}
+			if size == 0 {
+				return typ + "{}"
+			}
+			// Build zero value with correct number of elements
+			elements := make([]string, size)
+			for i := 0; i < size; i++ {
+				elements[i] = elemZero
+			}
+			return typ + "{" + strings.Join(elements, ",") + "}"
+		}
+		return typ + "{}"
 	}
 
 	// For named types, get the base type and use getZeroValueByBaseType

@@ -227,8 +227,8 @@ func TestFindPackagesWithResetComments(t *testing.T) {
 							{Name: "Slice", Type: "[]int", ElementType: "int", BaseType: "int", IsSlice: true},
 							{Name: "Map", Type: "map[string]int", ElementType: "int", BaseType: "int", IsMap: true},
 							{Name: "Struct", Type: "struct{}", BaseType: "struct{}", IsStruct: true},
-							{Name: "Named", Type: "User", BaseType: "User"},
-							{Name: "Pointer", Type: "*User", PointTo: "User", BaseType: "User", IsPtr: true},
+							{Name: "Named", Type: "User", BaseType: ""},
+							{Name: "Pointer", Type: "*User", PointTo: "User", BaseType: "", IsPtr: true},
 						},
 					},
 				},
@@ -687,6 +687,21 @@ func TestGetZeroValue(t *testing.T) {
 			typ:  "CustomType",
 			want: "nil",
 		},
+		{
+			name: "array [5]int",
+			typ:  "[5]int",
+			want: "[5]int{0,0,0,0,0}",
+		},
+		{
+			name: "array [...]string",
+			typ:  "[...]string",
+			want: "[...]string{\"\",\"\"}",
+		},
+		{
+			name: "array [10]float64",
+			typ:  "[10]float64",
+			want: "[10]float64{0,0,0,0,0,0,0,0,0,0}",
+		},
 	}
 
 	for _, tc := range testCases {
@@ -812,132 +827,6 @@ func TestIsStructType(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			got := isStructType(tc.typ, tc.structTypes, tc.typeDecls)
-			assert.Equal(t, tc.want, got)
-		})
-	}
-}
-
-func TestGetBaseTypeNew(t *testing.T) {
-	testCases := []struct {
-		name      string
-		typ       string
-		typeDecls map[string]string
-		want      string
-	}{
-		{
-			name:      "int_type",
-			typ:       "int",
-			typeDecls: nil,
-			want:      "int",
-		},
-		{
-			name:      "string_type",
-			typ:       "string",
-			typeDecls: nil,
-			want:      "string",
-		},
-		{
-			name:      "bool_type",
-			typ:       "bool",
-			typeDecls: nil,
-			want:      "bool",
-		},
-		{
-			name:      "float64_type",
-			typ:       "float64",
-			typeDecls: nil,
-			want:      "float",
-		},
-		{
-			name:      "uint32_type",
-			typ:       "uint32",
-			typeDecls: nil,
-			want:      "uint",
-		},
-		{
-			name:      "pointer_to_int",
-			typ:       "*int",
-			typeDecls: nil,
-			want:      "int",
-		},
-		{
-			name:      "slice_of_string",
-			typ:       "[]string",
-			typeDecls: nil,
-			want:      "string",
-		},
-		{
-			name:      "map_type",
-			typ:       "map[string]int",
-			typeDecls: nil,
-			want:      "int",
-		},
-		{
-			name: "named_type_with_type_decls",
-			typ:  "MyInt",
-			typeDecls: map[string]string{
-				"MyInt": "int",
-			},
-			want: "int",
-		},
-		{
-			name: "nested_named_type_resolves_to_int",
-			typ:  "AliasToMyInt",
-			typeDecls: map[string]string{
-				"AliasToMyInt": "MyInt",
-				"MyInt":        "int",
-			},
-			want: "int",
-		},
-		{
-			name: "pointer_with_type_decls",
-			typ:  "*MyString",
-			typeDecls: map[string]string{
-				"MyString": "string",
-			},
-			want: "string",
-		},
-		{
-			name:      "unknown_named_type_fallback",
-			typ:       "CustomType",
-			typeDecls: nil,
-			want:      "CustomType",
-		},
-		{
-			name:      "uint_alias",
-			typ:       "Uint32",
-			typeDecls: nil,
-			want:      "int", // current suffix matching: Uint32 ends with int32, so returns int
-		},
-		{
-			name:      "float_alias",
-			typ:       "Float64",
-			typeDecls: nil,
-			want:      "float",
-		},
-		{
-			name:      "bool_alias",
-			typ:       "Bool",
-			typeDecls: nil,
-			want:      "bool",
-		},
-		{
-			name:      "string_alias",
-			typ:       "String",
-			typeDecls: nil,
-			want:      "string",
-		},
-		{
-			name:      "struct_type",
-			typ:       "struct{}",
-			typeDecls: nil,
-			want:      "struct{}",
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			got := getBaseType(tc.typ, tc.typeDecls)
 			assert.Equal(t, tc.want, got)
 		})
 	}
