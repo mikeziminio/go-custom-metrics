@@ -488,7 +488,7 @@ func TestGenerateResetMethod(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := generateResetMethod(tc.structInfo, tc.structTypes)
+			got, err := generateResetMethod(tc.structInfo)
 			assert.NoError(t, err)
 
 			for _, want := range tc.wantContains {
@@ -502,7 +502,6 @@ func TestGenerateResetMethodWithStructTypes(t *testing.T) {
 	testCases := []struct {
 		name         string
 		structInfo   structInfo
-		structTypes  map[string]struct{}
 		wantContains string
 	}{
 		{
@@ -513,17 +512,17 @@ func TestGenerateResetMethodWithStructTypes(t *testing.T) {
 					{Name: "Config", Type: "*AppConfig", PointTo: "AppConfig", BaseType: "AppConfig", IsPtr: true},
 				},
 				HasReset: false,
+				typeDecls: map[string]string{
+					"AppConfig": "struct{}",
+				},
 			},
-			structTypes: map[string]struct{}{
-				"AppConfig": {},
-			},
-			wantContains: "if resetter, ok := (*rs.Config).(interface{ Reset() }); ok",
+			wantContains: "if resetter, ok := any(*rs.Config).(interface{ Reset() }); ok",
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := generateResetMethod(tc.structInfo, tc.structTypes)
+			got, err := generateResetMethod(tc.structInfo)
 			assert.NoError(t, err)
 			assert.Contains(t, got, tc.wantContains)
 		})

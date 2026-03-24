@@ -66,7 +66,7 @@ func main() {
 			continue
 		}
 
-		genFilePath := filepath.Join(filepath.Dir(pkgPath), "reset.gen.go")
+		genFilePath := filepath.Join(pkgPath, "reset.gen.go")
 		if err := writeResetFile(genFilePath, structs); err != nil {
 			fmt.Fprintf(os.Stderr, "Error generating %s: %v\n", genFilePath, err)
 			os.Exit(1)
@@ -144,34 +144,7 @@ func processPackage(dirPath string, files []string, result map[string][]structIn
 		}
 	}
 
-	// Второй проход: собираем все имена структур в пакете
-	allStructTypes := make(map[string]struct{})
-	for _, file := range files {
-		node, err := parser.ParseFile(fset, file, nil, parser.ParseComments)
-		if err != nil {
-			continue
-		}
-
-		for _, decl := range node.Decls {
-			genDecl, ok := decl.(*ast.GenDecl)
-			if !ok {
-				continue
-			}
-
-			for _, spec := range genDecl.Specs {
-				typeSpec, ok := spec.(*ast.TypeSpec)
-				if !ok {
-					continue
-				}
-
-				if _, ok := typeSpec.Type.(*ast.StructType); ok {
-					allStructTypes[typeSpec.Name.Name] = struct{}{}
-				}
-			}
-		}
-	}
-
-	// Третий проход: извлекаем структуры с комментарием generate:reset
+	// Второй проход: извлекаем структуры с комментарием generate:reset
 	var structs []structInfo
 	for _, file := range files {
 		node, err := parser.ParseFile(fset, file, nil, parser.ParseComments)
@@ -208,7 +181,7 @@ func processPackage(dirPath string, files []string, result map[string][]structIn
 					continue
 				}
 
-				structs = append(structs, extractStructInfo(typeSpec.Name.Name, structType, allStructTypes, allTypeDecls))
+				structs = append(structs, extractStructInfo(typeSpec.Name.Name, structType, allTypeDecls))
 			}
 		}
 	}
@@ -235,7 +208,7 @@ func hasGenerateResetComment(comment *ast.CommentGroup) bool {
 	return false
 }
 
-func extractStructInfo(name string, structType *ast.StructType, types map[string]struct{}, typeDecls map[string]string) structInfo {
+func extractStructInfo(name string, structType *ast.StructType, typeDecls map[string]string) structInfo {
 	var fields []fieldInfo
 
 	if structType.Fields != nil {
@@ -282,7 +255,7 @@ func extractStructInfo(name string, structType *ast.StructType, types map[string
 		Name:      name,
 		Fields:    fields,
 		HasReset:  false,
-		types:     types,
+		types:     map[string]struct{}{},
 		typeDecls: typeDecls,
 	}
 }
@@ -335,7 +308,7 @@ var resetFileTemplate = template.Must(template.New("").Parse(resetFileTemplateSr
 func generateResetFile(pkgName string, structs []structInfo) (string, error) {
 	resetMethods := make([]string, 0, len(structs))
 	for _, s := range structs {
-		resetMethod, err := generateResetMethod(s, s.types)
+		resetMethod, err := generateResetMethod(s)
 		if err != nil {
 			// todo: добавить логирование (!)
 			continue
@@ -380,10 +353,10 @@ func (rs *{{.StructName}}) Reset() {
 
 var resetMethodTemplate = template.Must(template.New("").Parse(resetMethodTemplateSrc))
 
-func generateResetMethod(s structInfo, structTypes map[string]struct{}) (string, error) {
+func generateResetMethod(s structInfo) (string, error) {
 	var resetFields = make([]string, 0, len(s.Fields))
 	for _, f := range s.Fields {
-		resetField, err := generateResetField(f, structTypes)
+		resetField, err := generateResetField(f, s.types, s.typeDecls)
 		if err != nil {
 			// TODO: логирование или брейк ?
 			continue
@@ -406,13 +379,13 @@ func generateResetMethod(s structInfo, structTypes map[string]struct{}) (string,
 	return sb.String(), nil
 }
 
-func generateResetField(f fieldInfo, structTypes map[string]struct{}) (string, error) {
+func generateResetField(f fieldInfo, structTypes map[string]struct{}, typeDecls map[string]string) (string, error) {
 	var sb strings.Builder
 
 	if f.IsPtr {
-		if isStructType(f.PointTo, structTypes, nil) {
+		if isStructType(f.PointTo, structTypes, typeDecls) {
 			fmt.Fprintf(&sb, "if rs.%s != nil {\n", f.Name)
-			fmt.Fprintf(&sb, "\tif resetter, ok := (*rs.%s).(interface{ Reset() }); ok {\n", f.Name)
+			fmt.Fprintf(&sb, "\tif resetter, ok := any(*rs.%s).(interface{ Reset() }); ok {\n", f.Name)
 			fmt.Fprintf(&sb, "\t\tresetter.Reset()\n")
 			fmt.Fprintf(&sb, "\t}\n")
 			fmt.Fprintf(&sb, "}\n")
@@ -427,7 +400,7 @@ func generateResetField(f fieldInfo, structTypes map[string]struct{}) (string, e
 		fmt.Fprintf(&sb, "rs.%s = %s{}\n", f.Name, f.Type)
 	} else if f.IsMap {
 		fmt.Fprintf(&sb, "clear(rs.%s)\n", f.Name)
-	} else if f.IsStruct && isStructType(f.Name, structTypes, nil) {
+	} else if f.IsStruct && isStructType(f.Name, structTypes, typeDecls) {
 		fmt.Fprintf(&sb, "if resetter, ok := rs.%s.(interface{ Reset() }); ok {\n", f.Name)
 		fmt.Fprintf(&sb, "\tresetter.Reset()\n")
 		fmt.Fprintf(&sb, "}\n")
@@ -443,15 +416,18 @@ func isStructType(typ string, structTypes map[string]struct{}, typeDecls map[str
 	if _, ok := structTypes[typ]; ok {
 		return true
 	}
-	// If typeDecls is provided, check if resolves to a struct type
+	// Check if typ itself is "struct{}"
+	if typ == "struct{}" {
+		return true
+	}
+	// For named types, check if typeDecls exists and whether it resolves to struct{}
+	// Note: this implementation does NOT recursively resolve type aliases
 	if typeDecls != nil {
 		if resolved, ok := typeDecls[typ]; ok {
-			// Recursively resolve the type
-			return isStructType(resolved, structTypes, nil)
+			return resolved == "struct{}"
 		}
 	}
-	// Check if typ itself is "struct{}"
-	return typ == "struct{}"
+	return false
 }
 
 func getBaseType(typ string, typeDecls map[string]string) string {
