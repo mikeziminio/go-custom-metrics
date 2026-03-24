@@ -141,6 +141,7 @@ tasks:
 
   reset:
     desc: Generate reset methods for structures with // generate:reset comments
+          Specify path with -- path
     cmds:
       - "go build -o $BIN/reset ./cmd/reset"
-      - "$BIN/reset ./..."
+      - "$BIN/reset {{.CLI_ARGS}}"

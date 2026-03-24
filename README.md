@@ -9,6 +9,15 @@ task build -- -ldflags "-X main.buildVersion=1.0 -X main.buildDate=2026-03-24 -X
 
 ## Reset
 
+Пример запуска:
+```
+# для всех директорий
+task reset
+
+# опционально - для конкретной директории
+task reset -- ./internal/some_folder
+```
+
 ### Как работает
 
 `reset` генерирует методы `Reset()` для структур с комментарием `// generate:reset`.
@@ -33,3 +42,25 @@ task build -- -ldflags "-X main.buildVersion=1.0 -X main.buildDate=2026-03-24 -X
 **Но это выходит за рамки ТЗ по Инкременту 21** и уже приближается к написанию LSP для Go.
 
 Если действительно требуется обойти все эти ограничения, то по-моему мнению имеет смысл рассмотреть запускать отдельного процесса с `gopls` в качестве json-rpc сервера, куда `reset` сможет отправлять команды "textDocument/definition" для  гарантированного получения корректного определения типа.
+
+**Некорректное ТЗ**
+
+Согласно ТЗ Инкремента 21 допустима такая конструкция в Go:
+
+```
+type ResetableStruct struct {
+   child *ResetableStruct
+}
+
+func (rs *ResetableStruct) Reset() {
+    resetter, ok := rs.child.(interface{ Reset() })
+    ...
+}
+```
+
+Но type assertion `value.(T)` допустимо только когда `value` является интерфейсом.
+Поэтому проверка на наличие метода Reset() была сделана через оборачиванием в интерфейс:
+
+```
+resetter, ok := any(rs.child).(interface{ Reset() })
+```
