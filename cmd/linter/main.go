@@ -2,6 +2,7 @@ package main
 
 import (
 	"go/ast"
+	"go/types"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/singlechecker"
@@ -25,7 +26,7 @@ func run(pass *analysis.Pass) (any, error) {
 					if !ok {
 						return true
 					}
-					fnName := getFuncName(call.Fun)
+					fnName := getFuncName(pass, call.Fun)
 					if fnName == "panic" {
 						pass.Report(analysis.Diagnostic{
 							Pos:     call.Pos(),
@@ -48,16 +49,32 @@ func run(pass *analysis.Pass) (any, error) {
 	return nil, nil
 }
 
-func getFuncName(e ast.Expr) string {
+func getFuncName(pass *analysis.Pass, e ast.Expr) string {
 	switch v := e.(type) {
 	case *ast.Ident:
 		return v.Name
 	case *ast.SelectorExpr:
-		if p, ok := v.X.(*ast.Ident); ok {
-			return p.Name + "." + v.Sel.Name
+		id, ok := v.X.(*ast.Ident)
+		if !ok {
+			return v.Sel.Name
 		}
+		obj := pass.TypesInfo.Uses[id]
+		pkgName := ""
+		if obj != nil {
+			if pn, ok := obj.(*types.PkgName); ok {
+				if imported := pn.Imported(); imported != nil {
+					pkgName = imported.Name()
+				}
+			}
+		}
+		if pkgName != "" {
+			return pkgName + "." + v.Sel.Name
+		}
+		return id.Name + "." + v.Sel.Name
 	}
 	return ""
 }
 
-func main() { singlechecker.Main(NewAnalyzer()) }
+func main() {
+	singlechecker.Main(NewAnalyzer())
+}
