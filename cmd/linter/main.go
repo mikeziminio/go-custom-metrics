@@ -21,18 +21,24 @@ func run(pass *analysis.Pass) (any, error) {
 			if fn, ok := decl.(*ast.FuncDecl); ok {
 				isMain := fn.Name.Name == "main" && pass.Pkg.Name() == "main"
 				ast.Inspect(fn.Body, func(n ast.Node) bool {
-					if call, ok := n.(*ast.CallExpr); ok {
-						if fnName := getFuncName(call.Fun); fnName == "panic" {
-							pass.Report(analysis.Diagnostic{
-								Pos:     call.Pos(),
-								Message: "panic not allowed",
-							})
-						} else if !isMain && (fnName == "log.Fatal" || fnName == "os.Exit") {
-							pass.Report(analysis.Diagnostic{
-								Pos:     call.Pos(),
-								Message: "log.Fatal/os.Exit not allowed outside main",
-							})
-						}
+					call, ok := n.(*ast.CallExpr)
+					if !ok {
+						return true
+					}
+					fnName := getFuncName(call.Fun)
+					if fnName == "panic" {
+						pass.Report(analysis.Diagnostic{
+							Pos:     call.Pos(),
+							Message: "panic not allowed",
+						})
+						return true
+					}
+					if !isMain && (fnName == "log.Fatal" || fnName == "os.Exit") {
+						pass.Report(analysis.Diagnostic{
+							Pos:     call.Pos(),
+							Message: "log.Fatal/os.Exit not allowed outside main",
+						})
+						return true
 					}
 					return true
 				})
