@@ -5,8 +5,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"go/ast"
+
+	"github.com/stretchr/testify/assert"
 )
 
 // Helper function to compare struct slices in a deterministic way
@@ -516,7 +517,7 @@ func TestGenerateResetMethodWithStructTypes(t *testing.T) {
 					"AppConfig": "struct{}",
 				},
 			},
-			wantContains: "if resetter, ok := any(*rs.Config).(interface{ Reset() }); ok",
+			wantContains: "if resetter, ok := any(rs.Config).(interface{ Reset() }); ok",
 		},
 	}
 

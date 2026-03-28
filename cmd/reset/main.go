@@ -379,35 +379,68 @@ func generateResetMethod(s structInfo) (string, error) {
 	return sb.String(), nil
 }
 
+const (
+	resetStructPtrTemplateSrc = `if rs.{{.FieldName}} != nil {
+	if resetter, ok := any(rs.{{.FieldName}}).(interface{ Reset() }); ok {
+		resetter.Reset()
+	}
+}`
+	resetPtrTemplateSrc = `if rs.{{.FieldName}} != nil {
+	*rs.{{.FieldName}} = {{.ZeroValue}}
+}`
+	resetStructTemplateSrc = `if resetter, ok := any(rs.{{.FieldName}}).(interface{ Reset() }); ok {
+	resetter.Reset()
+}`
+	resetSliceTemplateSrc = `rs.{{.FieldName}} = rs.{{.FieldName}}[:0]`
+	resetArrayTemplateSrc = `rs.{{.FieldName}} = {{.FieldName}}{}`
+	resetMapTemplateSrc   = `clear(rs.{{.FieldName}})`
+	resetBaseTemplateSrc  = `rs.{{.FieldName}} = {{.ZeroValue}}`
+)
+
+var (
+	resetStructPtrTemplate = template.Must(template.New("").Parse(resetStructPtrTemplateSrc))
+	resetPtrTemplate       = template.Must(template.New("").Parse(resetPtrTemplateSrc))
+	resetStructTemplate    = template.Must(template.New("").Parse(resetStructTemplateSrc))
+	resetSliceTemplate     = template.Must(template.New("").Parse(resetSliceTemplateSrc))
+	resetArrayTemplate     = template.Must(template.New("").Parse(resetArrayTemplateSrc))
+	resetMapTemplate       = template.Must(template.New("").Parse(resetMapTemplateSrc))
+	resetBaseTemplate      = template.Must(template.New("").Parse(resetBaseTemplateSrc))
+)
+
 func generateResetField(f fieldInfo, structTypes map[string]struct{}, typeDecls map[string]string) (string, error) {
 	var sb strings.Builder
 
-	if f.IsPtr {
-		if isStructType(f.PointTo, structTypes, typeDecls) {
-			fmt.Fprintf(&sb, "if rs.%s != nil {\n", f.Name)
-			fmt.Fprintf(&sb, "\tif resetter, ok := any(*rs.%s).(interface{ Reset() }); ok {\n", f.Name)
-			fmt.Fprintf(&sb, "\t\tresetter.Reset()\n")
-			fmt.Fprintf(&sb, "\t}\n")
-			fmt.Fprintf(&sb, "}\n")
-		} else {
-			fmt.Fprintf(&sb, "if rs.%s != nil {\n", f.Name)
-			fmt.Fprintf(&sb, "\t*rs.%s = %s\n", f.Name, getZeroValue(f.PointTo))
-			fmt.Fprintf(&sb, "}\n")
-		}
-	} else if f.IsSlice {
-		fmt.Fprintf(&sb, "rs.%s = rs.%s[:0]\n", f.Name, f.Name)
-	} else if f.IsArray {
-		fmt.Fprintf(&sb, "rs.%s = %s{}\n", f.Name, f.Type)
-	} else if f.IsMap {
-		fmt.Fprintf(&sb, "clear(rs.%s)\n", f.Name)
-	} else if f.IsStruct && isStructType(f.Name, structTypes, typeDecls) {
-		fmt.Fprintf(&sb, "if resetter, ok := rs.%s.(interface{ Reset() }); ok {\n", f.Name)
-		fmt.Fprintf(&sb, "\tresetter.Reset()\n")
-		fmt.Fprintf(&sb, "}\n")
-	} else {
-		fmt.Fprintf(&sb, "rs.%s = %s\n", f.Name, getZeroValueByBaseType(f.BaseType))
+	data := struct {
+		FieldName string
+		ZeroValue string
+	}{
+		FieldName: f.Name,
+		ZeroValue: getZeroValueByBaseType(f.BaseType),
 	}
 
+	var err error
+	if f.IsPtr {
+		if isStructType(f.PointTo, structTypes, typeDecls) {
+			err = resetStructPtrTemplate.Execute(&sb, data)
+		} else {
+			err = resetPtrTemplate.Execute(&sb, data)
+		}
+	} else if f.IsSlice {
+		err = resetSliceTemplate.Execute(&sb, data)
+	} else if f.IsArray {
+		err = resetArrayTemplate.Execute(&sb, data)
+	} else if f.IsMap {
+		err = resetMapTemplate.Execute(&sb, data)
+	} else if f.IsStruct && isStructType(f.Name, structTypes, typeDecls) {
+		err = resetStructTemplate.Execute(&sb, data)
+	} else {
+		err = resetBaseTemplate.Execute(&sb, data)
+	}
+	if err != nil {
+		return "", err
+	}
+
+	sb.WriteString("\n")
 	return sb.String(), nil
 }
 
