@@ -33,20 +33,12 @@ type fieldInfo struct {
 	IsStruct    bool
 }
 
-var ignoredDirsArr = [...]string{
-	".git",
-	".zed",
-	".aidex",
-	"migrations",
-	"bin",
-}
-var ignoredDirs map[string]struct{}
-
-func init() {
-	ignoredDirs = make(map[string]struct{})
-	for _, id := range ignoredDirsArr {
-		ignoredDirs[id] = struct{}{}
-	}
+var ignoredDirs = map[string]struct{}{
+	".git":       {},
+	".zed":       {},
+	".aidex":     {},
+	"migrations": {},
+	"bin":        {},
 }
 
 func main() {

@@ -1,11 +1,10 @@
 package main
 
 import (
+	"go/ast"
 	"os"
 	"path/filepath"
 	"testing"
-
-	"go/ast"
 
 	"github.com/stretchr/testify/assert"
 )
