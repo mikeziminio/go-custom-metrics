@@ -52,27 +52,49 @@ func run(pass *analysis.Pass) (any, error) {
 func getFuncName(pass *analysis.Pass, e ast.Expr) string {
 	switch v := e.(type) {
 	case *ast.Ident:
-		return v.Name
+		return getIdentFuncName(pass, v)
 	case *ast.SelectorExpr:
-		id, ok := v.X.(*ast.Ident)
-		if !ok {
-			return v.Sel.Name
-		}
-		obj := pass.TypesInfo.Uses[id]
-		pkgName := ""
-		if obj != nil {
-			if pn, ok := obj.(*types.PkgName); ok {
-				if imported := pn.Imported(); imported != nil {
-					pkgName = imported.Name()
-				}
-			}
-		}
-		if pkgName != "" {
-			return pkgName + "." + v.Sel.Name
-		}
-		return id.Name + "." + v.Sel.Name
+		return getSelectorFuncName(pass, v)
 	}
 	return ""
+}
+
+func getIdentFuncName(pass *analysis.Pass, v *ast.Ident) string {
+	obj := pass.TypesInfo.Uses[v]
+	if obj == nil {
+		return v.Name
+	}
+
+	if fn, ok := obj.(*types.Func); ok {
+		return getFuncFullName(fn)
+	}
+
+	if pn, ok := obj.(*types.PkgName); ok {
+		return pn.Imported().Name()
+	}
+
+	return v.Name
+}
+
+func getSelectorFuncName(pass *analysis.Pass, v *ast.SelectorExpr) string {
+	id, ok := v.X.(*ast.Ident)
+	if !ok {
+		return v.Sel.Name
+	}
+
+	obj := pass.TypesInfo.Uses[id]
+	if pn, ok := obj.(*types.PkgName); ok {
+		return pn.Imported().Name() + "." + v.Sel.Name
+	}
+
+	return v.Sel.Name
+}
+
+func getFuncFullName(fn *types.Func) string {
+	if pkg := fn.Pkg(); pkg != nil {
+		return pkg.Name() + "." + fn.Name()
+	}
+	return fn.Name()
 }
 
 func main() {
