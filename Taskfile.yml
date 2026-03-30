@@ -5,10 +5,10 @@ env:
 
 tasks:
   build:
-    desc: Build all
+    desc: Build all, specify args after --
     cmds:
-      - "go build -o $BIN/server ./cmd/server"
-      - "go build -o $BIN/agent ./cmd/agent"
+      - "go build -o $BIN/server {{.CLI_ARGS}} ./cmd/server"
+      - "go build -o $BIN/agent {{.CLI_ARGS}} ./cmd/agent"
 
   server:
     desc: Run server, specify args after --
@@ -138,3 +138,10 @@ tasks:
      cmds:
       - "$BIN/swag fmt  -d './internal/server,./internal/model' -g 'handler.go'"
       - "$BIN/swag init --v3.1 -d './internal/server,./internal/model' -g 'handler.go' -o ./swagger/ -ot 'json,yaml'"
+
+  reset:
+    desc: Generate reset methods for structures with // generate:reset comments
+          Specify path with -- path
+    cmds:
+      - "go build -o $BIN/reset ./cmd/reset"
+      - "$BIN/reset {{.CLI_ARGS}}"

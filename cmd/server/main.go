@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"fmt"
 	stdlog "log"
+
 	// #nosec G108
 	// Profiling endpoint is intentionally exposed on /debug/pprof
 	_ "net/http/pprof"
@@ -17,7 +19,17 @@ import (
 	"github.com/mikeziminio/go-custom-metrics/internal/server/config"
 )
 
+var (
+	buildVersion string = "N/A"
+	buildDate    string = "N/A"
+	buildCommit  string = "N/A"
+)
+
 func main() {
+	fmt.Printf(
+		"Build version: %s\nBuild date: %s\nBuild commit: %s\n",
+		buildVersion, buildDate, buildCommit,
+	)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
