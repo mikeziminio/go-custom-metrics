@@ -23,6 +23,8 @@ type Config struct {
 	DatabaseDSN string `envconfig:"DATABASE_DSN"`
 	// HashKey is the key for request signature validation.
 	HashKey string `envconfig:"KEY"`
+	// Path to private key file for RSA decryption (env: CRYPTO_KEY)
+	CryptoKey string `envconfig:"CRYPTO_KEY"`
 	// LogLevel is the logging level (debug, info, warn, error).
 	LogLevel string
 	// AuditFile is the path to audit log file.
@@ -39,6 +41,7 @@ var (
 	DefaultRestore         = false
 	DefaultDatabaseDSN     = ""
 	DefaultHashKey         = ""
+	DefaultCryptoKey       = ""
 	DefaultLogLevel        = "info"
 	DefaultAuditFile       = ""
 	DefaultAuditURL        = ""
@@ -66,6 +69,7 @@ func NewFromEnvsAndFlags() (*Config, error) {
 		"следует ли загружать ранее сохранённые значения из указанного файла при старте сервера")
 	flag.StringVar(&c.DatabaseDSN, "d", DefaultDatabaseDSN, "database DSN")
 	flag.StringVar(&c.HashKey, "k", DefaultHashKey, "ключ подписи")
+	flag.StringVar(&c.CryptoKey, "crypto-key", DefaultCryptoKey, "путь до файла с приватным ключом")
 	flag.StringVar(&c.AuditFile, "audit-file", DefaultAuditFile, "путь к файлу, в который сохраняются логи аудита")
 	flag.StringVar(&c.AuditURL, "audit-url", DefaultAuditURL, "полный URL, по которой отправляются логи аудита")
 	flag.Parse()

@@ -16,6 +16,8 @@ import (
 	"github.com/mikeziminio/go-custom-metrics/internal/log"
 	"github.com/mikeziminio/go-custom-metrics/internal/memstorage"
 	"github.com/mikeziminio/go-custom-metrics/internal/server"
+	"crypto/rsa"
+	"github.com/mikeziminio/go-custom-metrics/internal/crypto"
 	"github.com/mikeziminio/go-custom-metrics/internal/server/config"
 )
 
@@ -90,10 +92,20 @@ func main() {
 		}()
 	}
 
-	s := server.New(
+	
+	var privKey *rsa.PrivateKey
+	if c.CryptoKey != "" {
+		var err error
+		privKey, err = crypto.LoadPrivateKey(c.CryptoKey)
+		if err != nil {
+			stdlog.Fatalf("failed to load private key: %v", err)
+		}
+	}
+s := server.New(
 		c.Address,
 		time.Duration(float64(time.Second)*c.StoreInterval),
 		[]byte(c.HashKey),
+		privKey,
 		storage,
 		logger,
 		auditLogger,

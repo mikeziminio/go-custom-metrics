@@ -32,6 +32,7 @@ import (
 	"golang.org/x/sync/semaphore"
 
 	"github.com/mikeziminio/go-custom-metrics/internal/compress"
+	"github.com/mikeziminio/go-custom-metrics/internal/crypto"
 	"github.com/mikeziminio/go-custom-metrics/internal/hasher"
 	"github.com/mikeziminio/go-custom-metrics/internal/model"
 	"github.com/mikeziminio/go-custom-metrics/internal/retrier"
@@ -94,6 +95,7 @@ type Agent struct {
 	sem            *semaphore.Weighted
 	retrier        Retrier
 	logger         *zap.Logger
+	cryptoKey      string
 }
 
 // Retrier interface defines the retry mechanism contract.
@@ -145,9 +147,10 @@ func New(
 	reportInterval time.Duration,
 	useCompress bool,
 	hashKey []byte,
-	rateLimit int,
+		rateLimit int,
 	timeout time.Duration,
 	logger *zap.Logger,
+	cryptoKey string,
 ) *Agent {
 	r := retrier.NewRetrier(
 		retryTimeouts(defaultRetryTimeouts, reportInterval),
@@ -164,10 +167,10 @@ func New(
 		client:         client,
 		baseURL:        baseURL,
 		useCompress:    useCompress,
-		hashKey:        hashKey,
+		cryptoKey:      cryptoKey,
 		sem:            semaphore.NewWeighted(int64(rateLimit)),
 		retrier:        r,
-		logger:         logger,
+		logger:         logger, 
 	}
 }
 
@@ -295,11 +298,16 @@ func (a *Agent) SendByBatch(ctx context.Context, metrics []model.Metric, useComp
 		h := hasher.HexHash(body, a.hashKey)
 		req.Header.Set(hasher.HashHeader, h)
 	}
-	req.Header.Set("Accept", "application/json")
-	if useCompress {
+
+	if a.cryptoKey != "" {
+		body = encryptRequestBody(body, a.cryptoKey, a.logger)
+		req.Header.Set("Content-Encoding", "rsa-oaep")
+	} else if useCompress {
 		req.Header.Set("Content-Encoding", "gzip")
 		req.Header.Set("Accept-Encoding", "gzip")
 	}
+
+	req.Header.Set("Accept", "application/json")
 
 	err = a.retrier.Retry(func() (e error) {
 		a.sem.Acquire(ctx, 1)
@@ -414,3 +422,21 @@ func (a *Agent) Run(ctx context.Context) {
 	defer sendCancel()
 	a.SendAll(sendCtx, a.useCompress)
 }
+
+// encryptRequestBody encrypts the request body using RSA-OAEP.
+func encryptRequestBody(body []byte, cryptoKey string, logger *zap.Logger) []byte {
+	pubKey, err := crypto.LoadPublicKey(cryptoKey)
+	if err != nil {
+		logger.Error("Failed to load public key", zap.Error(err))
+		return body
+	}
+
+	encrypted, err := crypto.EncryptWithPublicKey(body, pubKey)
+	if err != nil {
+		logger.Error("Failed to encrypt request body", zap.Error(err))
+		return body
+	}
+
+	return encrypted
+}
+

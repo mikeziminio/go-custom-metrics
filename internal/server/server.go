@@ -20,6 +20,8 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/mikeziminio/go-custom-metrics/internal/compress"
+	"crypto/rsa"
+	"github.com/mikeziminio/go-custom-metrics/internal/crypto"
 	"github.com/mikeziminio/go-custom-metrics/internal/hasher"
 	"github.com/mikeziminio/go-custom-metrics/internal/log"
 	"github.com/mikeziminio/go-custom-metrics/internal/model"
@@ -68,6 +70,7 @@ type APIServer struct {
 	address       string
 	storeInterval time.Duration
 	hashKey       []byte
+	cryptoKey    *rsa.PrivateKey
 	storage       Storage
 	router        *chi.Mux
 	httpServer    *http.Server
@@ -92,6 +95,7 @@ func New(
 	address string,
 	storeInterval time.Duration,
 	hashKey []byte,
+	cryptoKey *rsa.PrivateKey,
 	storage Storage,
 	logger *zap.Logger,
 	auditLogger *AuditLogger,
@@ -110,6 +114,7 @@ func New(
 		address:       address,
 		storeInterval: storeInterval,
 		hashKey:       hashKey,
+		cryptoKey:    cryptoKey,
 		storage:       storage,
 		router:        r,
 		httpServer:    httpServer,
@@ -128,6 +133,7 @@ func (a *APIServer) RegisterRoutes() {
 	r.Use(middleware.StripSlashes)
 	r.Use(log.MiddlewareHandler(a.logger))
 	r.Use(compress.DecompressMiddlewareHandler)
+	r.Use(crypto.MiddlewareHandler(a.cryptoKey, a.logger))
 	r.Use(hasher.MiddlewareHandler(a.hashKey, a.logger))
 	r.Use(compress.CompressMiddlewareHandler)
 

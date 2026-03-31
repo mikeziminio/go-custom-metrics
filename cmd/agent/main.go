@@ -35,7 +35,8 @@ func main() {
 		stdlog.Fatalf("failed to init logger: %v", err)
 	}
 
-	a := agent.New(
+	
+a := agent.New(
 		fmt.Sprintf("http://%s", c.Address),
 		time.Duration(float64(time.Second)*c.PollInterval),
 		time.Duration(float64(time.Second)*c.ReportInterval),
@@ -44,6 +45,7 @@ func main() {
 		c.RateLimit,
 		time.Duration(float64(time.Second)*c.Timeout),
 		logger,
+		c.CryptoKey,
 	)
 
 	a.Run(ctx)

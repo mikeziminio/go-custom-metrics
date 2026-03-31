@@ -17,6 +17,8 @@ type Config struct {
 	PollInterval float64 `envconfig:"POLL_INTERVAL"`
 	// Signature key (env: KEY)
 	HashKey string `envconfig:"KEY"`
+	// Path to public key file for RSA encryption (env: CRYPTO_KEY)
+	CryptoKey string `envconfig:"CRYPTO_KEY"`
 	// Maximum concurrent requests to server (env: RATE_LIMIT)
 	RateLimit int `envconfig:"RATE_LIMIT"`
 	// LogLevel is the logging level (debug, info, warn, error).
@@ -36,6 +38,7 @@ var (
 	DefaultLogLevel       = "info"
 	DefaultTimeout        = 1.0
 	DefaultHashKey        = ""
+	DefaultCryptoKey      = ""
 )
 
 // NewFromEnvsAndFlags creates a new Config by reading environment variables
@@ -62,6 +65,7 @@ func NewFromEnvsAndFlags() (*Config, error) {
 	)
 	flag.Float64Var(&c.PollInterval, "p", DefaultPollInterval, "частота опроса метрик")
 	flag.StringVar(&c.HashKey, "k", DefaultHashKey, "ключ подписи")
+	flag.StringVar(&c.CryptoKey, "crypto-key", DefaultCryptoKey, "путь до файла с публичным ключом")
 	flag.IntVar(&c.RateLimit, "l", DefaultRateLimit, "количество одновременных запросов к серверу")
 	flag.Parse()
 
