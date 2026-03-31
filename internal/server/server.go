@@ -25,6 +25,8 @@ import (
 	"github.com/mikeziminio/go-custom-metrics/internal/model"
 )
 
+const shutdownTimeout = 30 * time.Second
+
 // Storage interface defines the contract for metric storage implementations.
 //
 // Implementations must support update, retrieval, and listing operations
@@ -145,7 +147,7 @@ func (a *APIServer) RegisterRoutes() {
 //   - pprof server (if configured)
 //   - File sync goroutine (if storeInterval > 0)
 //
-// The function blocks until SIGINT or SIGTERM is received, then gracefully
+// The function blocks until SIGINT, SIGTERM, or SIGQUIT is received, then gracefully
 // shuts down the server.
 func (a *APIServer) Run(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
@@ -203,13 +205,23 @@ func (a *APIServer) Run(ctx context.Context) {
 		}
 	}
 
-	ctx, cancel = signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
+	ctx, cancel = signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	defer cancel()
 	<-ctx.Done()
 
-	err := a.httpServer.Shutdown(context.Background())
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer shutdownCancel()
+
+	err := a.httpServer.Shutdown(shutdownCtx)
 	if err != nil {
-		a.logger.Fatal("failed to gracefully shutdown", zap.Error(err))
+		a.logger.Error("failed to gracefully shutdown http server", zap.Error(err))
 	}
+
+	if syncer, ok := a.storage.(Syncer); ok {
+		if err := syncer.Sync(context.Background()); err != nil {
+			a.logger.Error("failed to sync storage on shutdown", zap.Error(err))
+		}
+	}
+
 	a.logger.Info("Server stopped")
 }

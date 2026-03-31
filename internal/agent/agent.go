@@ -37,6 +37,8 @@ import (
 	"github.com/mikeziminio/go-custom-metrics/internal/retrier"
 )
 
+const shutdownSendTimeout = 10 * time.Second
+
 var (
 	MetricAlloc          = "Alloc"
 	MetricBuckHashSys    = "BuckHashSys"
@@ -357,6 +359,7 @@ func (a *Agent) SendAll(ctx context.Context, useCompress bool) {
 }
 
 // Run starts the agent's main collection and transmission loop.
+// Run starts the agent's main collection and transmission loop.
 //
 // Parameters:
 //   - ctx: Context for the agent's operation
@@ -365,10 +368,10 @@ func (a *Agent) SendAll(ctx context.Context, useCompress bool) {
 //  1. Collects metrics at the specified pollInterval
 //  2. Sends metrics to the server at the specified reportInterval
 //
-// The function blocks until it receives SIGINT or SIGTERM signals, then
-// gracefully stops both goroutines before returning.
+// The function blocks until it receives SIGINT, SIGTERM, or SIGQUIT signals, then
+// sends all pending metrics before returning.
 func (a *Agent) Run(ctx context.Context) {
-	ctx, cancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
+	ctx, cancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	defer cancel()
 
 	var wg sync.WaitGroup
@@ -377,6 +380,7 @@ func (a *Agent) Run(ctx context.Context) {
 	go func() {
 		defer wg.Done()
 		ticker := time.NewTicker(a.pollInterval)
+		defer ticker.Stop()
 		for {
 			select {
 			case <-ctx.Done():
@@ -392,6 +396,7 @@ func (a *Agent) Run(ctx context.Context) {
 	go func() {
 		defer wg.Done()
 		ticker := time.NewTicker(a.reportInterval)
+		defer ticker.Stop()
 		for {
 			select {
 			case <-ctx.Done():
@@ -404,4 +409,8 @@ func (a *Agent) Run(ctx context.Context) {
 
 	a.logger.Info("Agent started", zap.String("baseURL", a.baseURL))
 	wg.Wait()
+
+	sendCtx, sendCancel := context.WithTimeout(context.Background(), shutdownSendTimeout)
+	defer sendCancel()
+	a.SendAll(sendCtx, a.useCompress)
 }

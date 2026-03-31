@@ -54,10 +54,6 @@ func New(syncWithUpdate bool, fileStoragePath string, logger *zap.Logger) (*MemS
 //
 // Returns the updated metric or an error if sync fails.
 func (s *MemStorage) Update(ctx context.Context, m model.Metric) (*model.Metric, error) {
-	// todo: next sprint
-	// в текущем спринте не дается никаких требований на хранение метрик
-	// поэтому сейчас метрики типа Gauge перезатирают значение,
-	// а метрики типа Counter инкрементируют значение.
 	s.mu.Lock()
 	current, ok := s.metrics[m.ID]
 	if ok && m.MType == model.Counter {
