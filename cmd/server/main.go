@@ -101,7 +101,7 @@ func main() {
 			stdlog.Fatalf("failed to load private key: %v", err)
 		}
 	}
-s := server.New(
+	s := server.New(
 		c.Address,
 		time.Duration(float64(time.Second)*c.StoreInterval),
 		[]byte(c.HashKey),

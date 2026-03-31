@@ -1,36 +1,41 @@
 package config
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
+	"os"
 
+	"dario.cat/mergo"
 	"github.com/kelseyhightower/envconfig"
 )
 
 // Config holds the configuration settings for the Server.
 type Config struct {
 	// Address is the HTTP server host:port.
-	Address string `envconfig:"ADDRESS"`
+	Address string `envconfig:"ADDRESS" json:"address"`
 	// PprofAddress is the pprof server host:port.
-	PprofAddress string `envconfig:"PPROF_ADDRESS"`
+	PprofAddress string `envconfig:"PPROF_ADDRESS" json:"pprof_address"`
 	// StoreInterval is the file storage interval in seconds.
-	StoreInterval float64 `envconfig:"STORE_INTERVAL"`
+	StoreInterval float64 `envconfig:"STORE_INTERVAL" json:"store_interval"`
 	// FileStoragePath is the path to file for storing metrics.
-	FileStoragePath string `envconfig:"FILE_STORAGE_PATH"`
+	FileStoragePath string `envconfig:"FILE_STORAGE_PATH" json:"store_file"`
 	// Restore indicates whether to restore metrics from file on startup.
-	Restore bool `envconfig:"RESTORE"`
+	Restore bool `envconfig:"RESTORE" json:"restore"`
 	// DatabaseDSN is the database DSN for DB storage.
-	DatabaseDSN string `envconfig:"DATABASE_DSN"`
+	DatabaseDSN string `envconfig:"DATABASE_DSN" json:"database_dsn"`
 	// HashKey is the key for request signature validation.
-	HashKey string `envconfig:"KEY"`
+	HashKey string `envconfig:"KEY" json:"hash_key"`
 	// Path to private key file for RSA decryption (env: CRYPTO_KEY)
-	CryptoKey string `envconfig:"CRYPTO_KEY"`
+	CryptoKey string `envconfig:"CRYPTO_KEY" json:"crypto_key"`
 	// LogLevel is the logging level (debug, info, warn, error).
 	LogLevel string
 	// AuditFile is the path to audit log file.
-	AuditFile string `envconfig:"AUDIT_FILE"`
+	AuditFile string `envconfig:"AUDIT_FILE" json:"audit_file"`
 	// AuditURL is the URL for audit log HTTP endpoint.
-	AuditURL string `envconfig:"AUDIT_URL"`
+	AuditURL string `envconfig:"AUDIT_URL" json:"audit_url"`
+	// ConfigFile is the path to JSON config file.
+	ConfigFile string
 }
 
 var (
@@ -60,6 +65,23 @@ func NewFromEnvsAndFlags() (*Config, error) {
 
 	c.LogLevel = DefaultLogLevel
 
+	if envConfigFile := os.Getenv("CONFIG"); envConfigFile != "" {
+		c.ConfigFile = envConfigFile
+	}
+
+	flag.StringVar(&c.ConfigFile, "config", "", "путь к JSON файлу конфигурации")
+	flag.Parse()
+
+	if c.ConfigFile != "" {
+		fileConfig, err := LoadConfigFromFile(c.ConfigFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load config file: %w", err)
+		}
+		if err := mergo.Merge(&c, fileConfig, mergo.WithOverride); err != nil {
+			return nil, fmt.Errorf("failed to merge config file: %w", err)
+		}
+	}
+
 	flag.StringVar(&c.Address, "a", DefaultAddress, "хост:порт http сервера")
 	flag.StringVar(&c.PprofAddress, "pprof-address", DefaultPprofAddress, "хост:порт для запуска pprof сервера")
 	flag.Float64Var(&c.StoreInterval, "i", DefaultStoreInterval, "интервал сохраниения в файл в секундах")
@@ -79,6 +101,21 @@ func NewFromEnvsAndFlags() (*Config, error) {
 	err := envconfig.Process("", &c)
 	if err != nil {
 		return nil, fmt.Errorf("failed to process envs: %w", err)
+	}
+
+	return &c, nil
+}
+
+func LoadConfigFromFile(path string) (*Config, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open config file: %w", err)
+	}
+	defer f.Close()
+
+	var c Config
+	if err := json.NewDecoder(f).Decode(&c); err != nil {
+		return nil, fmt.Errorf("failed to decode config file: %w", err)
 	}
 
 	return &c, nil
