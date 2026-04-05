@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/rsa"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -96,6 +97,7 @@ type Agent struct {
 	retrier        Retrier
 	logger         *zap.Logger
 	cryptoKey      string
+	pubKey         *rsa.PublicKey
 }
 
 // Retrier interface defines the retry mechanism contract.
@@ -139,6 +141,7 @@ func retryTimeouts(rts []time.Duration, reportInterval time.Duration) []time.Dur
 //   - rateLimit: Maximum number of concurrent HTTP requests
 //   - timeout: HTTP request timeout duration
 //   - logger: Logger instance for logging agent operations
+//   - cryptoKey: Path to public key file for RSA encryption
 //
 // Returns a new *Agent ready to have Run() called.
 func New(
@@ -147,7 +150,7 @@ func New(
 	reportInterval time.Duration,
 	useCompress bool,
 	hashKey []byte,
-		rateLimit int,
+	rateLimit int,
 	timeout time.Duration,
 	logger *zap.Logger,
 	cryptoKey string,
@@ -158,6 +161,14 @@ func New(
 	)
 	client := &http.Client{
 		Timeout: timeout,
+	}
+	var pubKey *rsa.PublicKey
+	if cryptoKey != "" {
+		var err error
+		pubKey, err = crypto.LoadPublicKey(cryptoKey)
+		if err != nil {
+			logger.Error("Failed to load public key", zap.Error(err))
+		}
 	}
 	return &Agent{
 		pollInterval:   pollInterval,
@@ -170,7 +181,8 @@ func New(
 		cryptoKey:      cryptoKey,
 		sem:            semaphore.NewWeighted(int64(rateLimit)),
 		retrier:        r,
-		logger:         logger, 
+		logger:         logger,
+		pubKey:         pubKey,
 	}
 }
 
@@ -299,8 +311,8 @@ func (a *Agent) SendByBatch(ctx context.Context, metrics []model.Metric, useComp
 		req.Header.Set(hasher.HashHeader, h)
 	}
 
-	if a.cryptoKey != "" {
-		body = encryptRequestBody(body, a.cryptoKey, a.logger)
+	if a.pubKey != nil {
+		body = a.encryptRequestBody(body)
 		req.Header.Set("Content-Encoding", "rsa-oaep")
 	} else if useCompress {
 		req.Header.Set("Content-Encoding", "gzip")
@@ -424,19 +436,16 @@ func (a *Agent) Run(ctx context.Context) {
 }
 
 // encryptRequestBody encrypts the request body using RSA-OAEP.
-func encryptRequestBody(body []byte, cryptoKey string, logger *zap.Logger) []byte {
-	pubKey, err := crypto.LoadPublicKey(cryptoKey)
-	if err != nil {
-		logger.Error("Failed to load public key", zap.Error(err))
+func (a *Agent) encryptRequestBody(body []byte) []byte {
+	if a.pubKey == nil {
 		return body
 	}
 
-	encrypted, err := crypto.EncryptWithPublicKey(body, pubKey)
+	encrypted, err := crypto.EncryptWithPublicKey(body, a.pubKey)
 	if err != nil {
-		logger.Error("Failed to encrypt request body", zap.Error(err))
+		a.logger.Error("Failed to encrypt request body", zap.Error(err))
 		return body
 	}
 
 	return encrypted
 }
-
