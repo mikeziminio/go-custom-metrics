@@ -296,6 +296,9 @@ func (a *Agent) SendByBatch(ctx context.Context, metrics []model.Metric, useComp
 	if err != nil {
 		return fmt.Errorf("failed to marshal %d metrics: %w", len(metrics), err)
 	}
+	if a.pubKey != nil {
+		body = a.encryptRequestBody(body)
+	}
 
 	var bodyReader io.Reader
 	bodyReader = bytes.NewReader(body)
@@ -312,7 +315,6 @@ func (a *Agent) SendByBatch(ctx context.Context, metrics []model.Metric, useComp
 	}
 
 	if a.pubKey != nil {
-		body = a.encryptRequestBody(body)
 		req.Header.Set("Content-Encoding", "rsa-oaep")
 	} else if useCompress {
 		req.Header.Set("Content-Encoding", "gzip")

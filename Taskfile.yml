@@ -28,11 +28,6 @@ tasks:
       - "go build -o $BIN/agent ./cmd/agent"
       - "$BIN/agent -p 1 -r 1 {{.CLI_ARGS}}"
 
-  test-all-build:
-    desc: Rebuild docker image for yandex tests
-    cmds:
-      - docker compose build --no-cache
-
   postgres-up:
     desc: Docker compose up postgres container
     cmds:
@@ -52,6 +47,11 @@ tasks:
     desc: Docker compose down postgres container
     cmds:
       - docker compose -f docker-compose-postgres.yml down --remove-orphans
+
+  test-all-build:
+    desc: Rebuild docker image for yandex tests
+    cmds:
+      - docker compose build --no-cache
 
   test-all:
     desc: Run all linters and tests

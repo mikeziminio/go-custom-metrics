@@ -9,6 +9,7 @@ import (
 	"github.com/mikeziminio/go-custom-metrics/internal/agent"
 	"github.com/mikeziminio/go-custom-metrics/internal/agent/config"
 	"github.com/mikeziminio/go-custom-metrics/internal/log"
+	"go.uber.org/zap"
 )
 
 var (
@@ -34,6 +35,7 @@ func main() {
 	if err != nil {
 		stdlog.Fatalf("failed to init logger: %v", err)
 	}
+	logger.Info("config", zap.Any("config", c))
 
 	a := agent.New(
 		fmt.Sprintf("http://%s", c.Address),
