@@ -44,6 +44,7 @@ func main() {
 		c.RateLimit,
 		time.Duration(float64(time.Second)*c.Timeout),
 		logger,
+		c.CryptoKey,
 	)
 
 	a.Run(ctx)

@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/rsa"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -32,10 +33,13 @@ import (
 	"golang.org/x/sync/semaphore"
 
 	"github.com/mikeziminio/go-custom-metrics/internal/compress"
+	"github.com/mikeziminio/go-custom-metrics/internal/crypto"
 	"github.com/mikeziminio/go-custom-metrics/internal/hasher"
 	"github.com/mikeziminio/go-custom-metrics/internal/model"
 	"github.com/mikeziminio/go-custom-metrics/internal/retrier"
 )
+
+const shutdownSendTimeout = 10 * time.Second
 
 var (
 	MetricAlloc          = "Alloc"
@@ -92,6 +96,8 @@ type Agent struct {
 	sem            *semaphore.Weighted
 	retrier        Retrier
 	logger         *zap.Logger
+	cryptoKey      string
+	pubKey         *rsa.PublicKey
 }
 
 // Retrier interface defines the retry mechanism contract.
@@ -135,6 +141,7 @@ func retryTimeouts(rts []time.Duration, reportInterval time.Duration) []time.Dur
 //   - rateLimit: Maximum number of concurrent HTTP requests
 //   - timeout: HTTP request timeout duration
 //   - logger: Logger instance for logging agent operations
+//   - cryptoKey: Path to public key file for RSA encryption
 //
 // Returns a new *Agent ready to have Run() called.
 func New(
@@ -146,6 +153,7 @@ func New(
 	rateLimit int,
 	timeout time.Duration,
 	logger *zap.Logger,
+	cryptoKey string,
 ) *Agent {
 	r := retrier.NewRetrier(
 		retryTimeouts(defaultRetryTimeouts, reportInterval),
@@ -153,6 +161,14 @@ func New(
 	)
 	client := &http.Client{
 		Timeout: timeout,
+	}
+	var pubKey *rsa.PublicKey
+	if cryptoKey != "" {
+		var err error
+		pubKey, err = crypto.LoadPublicKey(cryptoKey)
+		if err != nil {
+			logger.Error("Failed to load public key", zap.Error(err))
+		}
 	}
 	return &Agent{
 		pollInterval:   pollInterval,
@@ -162,10 +178,11 @@ func New(
 		client:         client,
 		baseURL:        baseURL,
 		useCompress:    useCompress,
-		hashKey:        hashKey,
+		cryptoKey:      cryptoKey,
 		sem:            semaphore.NewWeighted(int64(rateLimit)),
 		retrier:        r,
 		logger:         logger,
+		pubKey:         pubKey,
 	}
 }
 
@@ -279,6 +296,9 @@ func (a *Agent) SendByBatch(ctx context.Context, metrics []model.Metric, useComp
 	if err != nil {
 		return fmt.Errorf("failed to marshal %d metrics: %w", len(metrics), err)
 	}
+	if a.pubKey != nil {
+		body = a.encryptRequestBody(body)
+	}
 
 	var bodyReader io.Reader
 	bodyReader = bytes.NewReader(body)
@@ -293,11 +313,15 @@ func (a *Agent) SendByBatch(ctx context.Context, metrics []model.Metric, useComp
 		h := hasher.HexHash(body, a.hashKey)
 		req.Header.Set(hasher.HashHeader, h)
 	}
-	req.Header.Set("Accept", "application/json")
-	if useCompress {
+
+	if a.pubKey != nil {
+		req.Header.Set("Content-Encoding", "rsa-oaep")
+	} else if useCompress {
 		req.Header.Set("Content-Encoding", "gzip")
 		req.Header.Set("Accept-Encoding", "gzip")
 	}
+
+	req.Header.Set("Accept", "application/json")
 
 	err = a.retrier.Retry(func() (e error) {
 		a.sem.Acquire(ctx, 1)
@@ -357,6 +381,7 @@ func (a *Agent) SendAll(ctx context.Context, useCompress bool) {
 }
 
 // Run starts the agent's main collection and transmission loop.
+// Run starts the agent's main collection and transmission loop.
 //
 // Parameters:
 //   - ctx: Context for the agent's operation
@@ -365,10 +390,10 @@ func (a *Agent) SendAll(ctx context.Context, useCompress bool) {
 //  1. Collects metrics at the specified pollInterval
 //  2. Sends metrics to the server at the specified reportInterval
 //
-// The function blocks until it receives SIGINT or SIGTERM signals, then
-// gracefully stops both goroutines before returning.
+// The function blocks until it receives SIGINT, SIGTERM, or SIGQUIT signals, then
+// sends all pending metrics before returning.
 func (a *Agent) Run(ctx context.Context) {
-	ctx, cancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
+	ctx, cancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	defer cancel()
 
 	var wg sync.WaitGroup
@@ -377,6 +402,7 @@ func (a *Agent) Run(ctx context.Context) {
 	go func() {
 		defer wg.Done()
 		ticker := time.NewTicker(a.pollInterval)
+		defer ticker.Stop()
 		for {
 			select {
 			case <-ctx.Done():
@@ -392,6 +418,7 @@ func (a *Agent) Run(ctx context.Context) {
 	go func() {
 		defer wg.Done()
 		ticker := time.NewTicker(a.reportInterval)
+		defer ticker.Stop()
 		for {
 			select {
 			case <-ctx.Done():
@@ -404,4 +431,23 @@ func (a *Agent) Run(ctx context.Context) {
 
 	a.logger.Info("Agent started", zap.String("baseURL", a.baseURL))
 	wg.Wait()
+
+	sendCtx, sendCancel := context.WithTimeout(context.Background(), shutdownSendTimeout)
+	defer sendCancel()
+	a.SendAll(sendCtx, a.useCompress)
+}
+
+// encryptRequestBody encrypts the request body using RSA-OAEP.
+func (a *Agent) encryptRequestBody(body []byte) []byte {
+	if a.pubKey == nil {
+		return body
+	}
+
+	encrypted, err := crypto.EncryptWithPublicKey(body, a.pubKey)
+	if err != nil {
+		a.logger.Error("Failed to encrypt request body", zap.Error(err))
+		return body
+	}
+
+	return encrypted
 }
