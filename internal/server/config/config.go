@@ -32,7 +32,9 @@ type Config struct {
 	AuditFile string `envconfig:"AUDIT_FILE" json:"audit_file" flag:"audit-file" doc:"путь к файлу, в который сохраняются логи аудита"`
 	// полный URL, на который отправляются логи аудита
 	AuditURL string `envconfig:"AUDIT_URL" json:"audit_url" flag:"audit-url" doc:"полный URL, на который отправляются логи аудита"`
-	LogLevel string
+	// доверенная подсеть (CIDR)
+	TrustedSubnet string `envconfig:"TRUSTED_SUBNET" json:"trusted_subnet" flag:"t" doc:"доверенная подсеть (CIDR)"`
+	LogLevel      string
 }
 
 var defaultConfig = Config{

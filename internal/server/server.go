@@ -6,6 +6,7 @@ package server
 
 import (
 	"context"
+	"net"
 	"net/http"
 
 	// #nosec G108
@@ -19,12 +20,13 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"go.uber.org/zap"
 
-	"github.com/mikeziminio/go-custom-metrics/internal/compress"
 	"crypto/rsa"
+	"github.com/mikeziminio/go-custom-metrics/internal/compress"
 	"github.com/mikeziminio/go-custom-metrics/internal/crypto"
 	"github.com/mikeziminio/go-custom-metrics/internal/hasher"
 	"github.com/mikeziminio/go-custom-metrics/internal/log"
 	"github.com/mikeziminio/go-custom-metrics/internal/model"
+	"github.com/mikeziminio/go-custom-metrics/internal/trustedsubnet"
 )
 
 const shutdownTimeout = 30 * time.Second
@@ -70,13 +72,14 @@ type APIServer struct {
 	address       string
 	storeInterval time.Duration
 	hashKey       []byte
-	cryptoKey    *rsa.PrivateKey
+	cryptoKey     *rsa.PrivateKey
 	storage       Storage
 	router        *chi.Mux
 	httpServer    *http.Server
 	logger        *zap.Logger
 	auditLogger   *AuditLogger
 	pprofAddress  string
+	trustedSubnet *net.IPNet
 }
 
 // New creates a new APIServer instance.
@@ -89,6 +92,7 @@ type APIServer struct {
 //   - logger: Logger instance
 //   - auditLogger: Audit logger instance (nil to disable auditing)
 //   - pprofAddress: Address for pprof profiling server (empty to disable)
+//   - trustedSubnet: CIDR notation for trusted subnet (empty for no restriction)
 //
 // Returns a new APIServer ready for route registration and startup.
 func New(
@@ -100,6 +104,7 @@ func New(
 	logger *zap.Logger,
 	auditLogger *AuditLogger,
 	pprofAddress string,
+	trustedSubnet string,
 ) *APIServer {
 	r := chi.NewRouter()
 
@@ -110,17 +115,28 @@ func New(
 		ReadHeaderTimeout: 1 * time.Second,
 	}
 
+	var parsedSubnet *net.IPNet
+	if trustedSubnet != "" {
+		var err error
+		parsedSubnet, err = trustedsubnet.ParseCIDR(trustedSubnet)
+		if err != nil {
+			logger.Warn("Invalid trusted subnet CIDR, subnet will be ignored",
+				zap.String("subnet", trustedSubnet), zap.Error(err))
+		}
+	}
+
 	a := &APIServer{
 		address:       address,
 		storeInterval: storeInterval,
 		hashKey:       hashKey,
-		cryptoKey:    cryptoKey,
+		cryptoKey:     cryptoKey,
 		storage:       storage,
 		router:        r,
 		httpServer:    httpServer,
 		logger:        logger,
 		auditLogger:   auditLogger,
 		pprofAddress:  pprofAddress,
+		trustedSubnet: parsedSubnet,
 	}
 
 	return a
@@ -136,6 +152,7 @@ func (a *APIServer) RegisterRoutes() {
 	r.Use(crypto.MiddlewareHandler(a.cryptoKey, a.logger))
 	r.Use(hasher.MiddlewareHandler(a.hashKey, a.logger))
 	r.Use(compress.CompressMiddlewareHandler)
+	r.Use(trustedsubnet.MiddlewareHandler(a.trustedSubnet, a.logger))
 
 	r.Get("/", a.List)
 	r.Get("/ping", a.Ping)
