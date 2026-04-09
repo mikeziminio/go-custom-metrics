@@ -182,7 +182,7 @@ func New(
 	var grpcClient *GRPCClient
 	var localIP string
 	if useGrpc && grpcAddress != "" {
-		localIP = getLocalIP()
+		localIP := trustedsubnet.GetLocalIP()
 		var err error
 		grpcClient, err = NewGRPCClient(grpcAddress, localIP, logger)
 		if err != nil {
@@ -348,7 +348,7 @@ func (a *Agent) SendByBatch(ctx context.Context, metrics []model.Metric, useComp
 
 	req.Header.Set("Accept", "application/json")
 
-	if localIP := getLocalIP(); localIP != "" {
+	if localIP := trustedsubnet.GetLocalIP(); localIP != "" {
 		req.Header.Set("X-Real-IP", localIP)
 	}
 
@@ -488,9 +488,4 @@ func (a *Agent) encryptRequestBody(body []byte) []byte {
 	}
 
 	return encrypted
-}
-
-// getLocalIP returns the local IP address.
-func getLocalIP() string {
-	return trustedsubnet.GetLocalIP()
 }
