@@ -112,5 +112,13 @@ func main() {
 		c.TrustedSubnet,
 	)
 	s.RegisterRoutes()
+
+	go func() {
+		grpcServer := server.NewGRPCServer(storage, logger, c.GrpcAddress, c.TrustedSubnet)
+		if err := grpcServer.Run(ctx); err != nil {
+			logger.Error("gRPC server error", zap.Error(err))
+		}
+	}()
+
 	s.Run(ctx)
 }

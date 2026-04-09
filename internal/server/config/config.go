@@ -34,7 +34,9 @@ type Config struct {
 	AuditURL string `envconfig:"AUDIT_URL" json:"audit_url" flag:"audit-url" doc:"полный URL, на который отправляются логи аудита"`
 	// доверенная подсеть (CIDR)
 	TrustedSubnet string `envconfig:"TRUSTED_SUBNET" json:"trusted_subnet" flag:"t" doc:"доверенная подсеть (CIDR)"`
-	LogLevel      string
+	// gRPC адрес сервера
+	GrpcAddress string `envconfig:"GRPC_ADDRESS" json:"grpc_address" flag:"grpc-addr" doc:"gRPC адрес сервера"`
+	LogLevel    string
 }
 
 var defaultConfig = Config{

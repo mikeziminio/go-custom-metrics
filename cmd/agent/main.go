@@ -45,6 +45,8 @@ func main() {
 		time.Duration(float64(time.Second)*c.Timeout),
 		logger,
 		c.CryptoKey,
+		c.GrpcAddress,
+		c.UseGrpc,
 	)
 
 	a.Run(ctx)
