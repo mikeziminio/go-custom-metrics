@@ -348,6 +348,10 @@ func (a *Agent) SendByBatch(ctx context.Context, metrics []model.Metric, useComp
 
 	req.Header.Set("Accept", "application/json")
 
+	// Если X-Real-IP используется для ограничения прав - нет никакого смысла
+	// доверять этому заголовку, выставленному на стороне агента.
+	// А необходимо принудительное выставление заголовка по пути от агента до сервера
+	// внутри контура, которому доверяет сервер.
 	if localIP := trustedsubnet.GetLocalIP(); localIP != "" {
 		req.Header.Set("X-Real-IP", localIP)
 	}
