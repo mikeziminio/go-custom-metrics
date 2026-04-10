@@ -21,6 +21,7 @@ import (
 	"go.uber.org/zap"
 
 	"crypto/rsa"
+
 	"github.com/mikeziminio/go-custom-metrics/internal/compress"
 	"github.com/mikeziminio/go-custom-metrics/internal/crypto"
 	"github.com/mikeziminio/go-custom-metrics/internal/hasher"
@@ -147,12 +148,12 @@ func (a *APIServer) RegisterRoutes() {
 	r := a.router
 
 	r.Use(middleware.StripSlashes)
+	r.Use(trustedsubnet.MiddlewareHandler(a.trustedSubnet, a.logger))
 	r.Use(log.MiddlewareHandler(a.logger))
 	r.Use(compress.DecompressMiddlewareHandler)
 	r.Use(crypto.MiddlewareHandler(a.cryptoKey, a.logger))
 	r.Use(hasher.MiddlewareHandler(a.hashKey, a.logger))
 	r.Use(compress.CompressMiddlewareHandler)
-	r.Use(trustedsubnet.MiddlewareHandler(a.trustedSubnet, a.logger))
 
 	r.Get("/", a.List)
 	r.Get("/ping", a.Ping)
