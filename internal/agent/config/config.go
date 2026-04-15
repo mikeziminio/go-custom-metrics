@@ -30,6 +30,10 @@ type Config struct {
 	UseCompress bool
 	// Таймаут запросов
 	Timeout float64
+	// gRPC адрес сервера
+	GrpcAddress string `envconfig:"GRPC_ADDRESS" json:"grpc_address" flag:"grpc-addr" doc:"gRPC адрес сервера"`
+	// Использовать ли gRPC
+	UseGrpc bool `envconfig:"USE_GRPC" json:"use_grpc" flag:"use-grpc" doc:"использовать gRPC"`
 }
 
 var defaultConfig = Config{
@@ -40,6 +44,7 @@ var defaultConfig = Config{
 	LogLevel:       "info",
 	UseCompress:    true,
 	Timeout:        1.0,
+	UseGrpc:        false,
 }
 
 func newFromDefault() *Config {

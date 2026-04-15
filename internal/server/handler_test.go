@@ -70,11 +70,12 @@ func TestUpdate(t *testing.T) {
 				Return(tc.expectedMetric, nil).
 				Once()
 
-			server := New("", 0, nil, nil, storage, zap.L(), nil, "")
+			server := New("", 0, nil, nil, storage, zap.L(), nil, "", "")
 			server.RegisterRoutes()
 
 			path := "/update"
 			req := httptest.NewRequest(http.MethodPost, path, bytes.NewBufferString(tc.body))
+			req.Header.Set("X-Real-IP", "127.0.0.1")
 			rec := httptest.NewRecorder()
 
 			server.router.ServeHTTP(rec, req)
@@ -110,7 +111,7 @@ func TestUpdateFailed(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			storage := NewMockStorage(t)
-			server := New("", 0, nil, nil, storage, zap.L(), nil, "")
+			server := New("", 0, nil, nil, storage, zap.L(), nil, "", "")
 			server.RegisterRoutes()
 
 			path := "/update"
@@ -157,7 +158,7 @@ func TestUpdateByParams(t *testing.T) {
 				Return(tc.expectedMetric, nil).
 				Once()
 
-			server := New("", 0, nil, nil, storage, zap.L(), nil, "")
+			server := New("", 0, nil, nil, storage, zap.L(), nil, "", "")
 			server.RegisterRoutes()
 
 			req := httptest.NewRequest(http.MethodPost, tc.path, http.NoBody)
@@ -190,7 +191,7 @@ func TestUpdateByParamsFailed(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			storage := NewMockStorage(t)
-			server := New("", 0, nil, nil, storage, zap.L(), nil, "")
+			server := New("", 0, nil, nil, storage, zap.L(), nil, "", "")
 			server.RegisterRoutes()
 
 			req := httptest.NewRequest(http.MethodPost, tc.path, http.NoBody)
@@ -252,7 +253,7 @@ func TestGet(t *testing.T) {
 				Return(tc.mockStorageReturnMetric, nil).
 				Once()
 
-			server := New("", 0, nil, nil, storage, zap.L(), nil, "")
+			server := New("", 0, nil, nil, storage, zap.L(), nil, "", "")
 			server.RegisterRoutes()
 
 			path := "/value"
@@ -283,7 +284,7 @@ func TestGetFailed(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			storage := NewMockStorage(t)
-			server := New("", 0, nil, nil, storage, zap.L(), nil, "")
+			server := New("", 0, nil, nil, storage, zap.L(), nil, "", "")
 			server.RegisterRoutes()
 
 			path := "/value"
@@ -340,7 +341,7 @@ func TestGetByParams(t *testing.T) {
 				Return(tc.mockStorageReturnMetric, nil).
 				Once()
 
-			server := New("", 0, nil, nil, storage, zap.L(), nil, "")
+			server := New("", 0, nil, nil, storage, zap.L(), nil, "", "")
 			server.RegisterRoutes()
 
 			req := httptest.NewRequest(http.MethodGet, tc.path, http.NoBody)
@@ -370,7 +371,7 @@ func TestGetByParamsFailed(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			storage := NewMockStorage(t)
-			server := New("", 0, nil, nil, storage, zap.L(), nil, "")
+			server := New("", 0, nil, nil, storage, zap.L(), nil, "", "")
 			server.RegisterRoutes()
 
 			req := httptest.NewRequest(http.MethodPost, tc.path, http.NoBody)
@@ -399,7 +400,7 @@ func TestList(t *testing.T) {
 		}, nil).
 		Once()
 
-	server := New("", 0, nil, nil, storage, zap.L(), nil, "")
+	server := New("", 0, nil, nil, storage, zap.L(), nil, "", "")
 	server.RegisterRoutes()
 
 	path := "/"

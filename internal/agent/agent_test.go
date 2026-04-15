@@ -62,7 +62,7 @@ func TestCollect(t *testing.T) {
 
 func testAgent(t *testing.T) *Agent {
 	t.Helper()
-	return New("", 1, 1, true, nil, 1, 1, zap.L(), "")
+	return New("", 1, 1, true, nil, 1, 1, zap.L(), "", "", false)
 }
 
 func TestRetryTimeouts(t *testing.T) {

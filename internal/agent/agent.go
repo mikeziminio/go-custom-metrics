@@ -37,6 +37,7 @@ import (
 	"github.com/mikeziminio/go-custom-metrics/internal/hasher"
 	"github.com/mikeziminio/go-custom-metrics/internal/model"
 	"github.com/mikeziminio/go-custom-metrics/internal/retrier"
+	"github.com/mikeziminio/go-custom-metrics/internal/trustedsubnet"
 )
 
 const shutdownSendTimeout = 10 * time.Second
@@ -98,6 +99,9 @@ type Agent struct {
 	logger         *zap.Logger
 	cryptoKey      string
 	pubKey         *rsa.PublicKey
+	grpcClient     *GRPCClient
+	localIP        string
+	useGrpc        bool
 }
 
 // Retrier interface defines the retry mechanism contract.
@@ -142,6 +146,8 @@ func retryTimeouts(rts []time.Duration, reportInterval time.Duration) []time.Dur
 //   - timeout: HTTP request timeout duration
 //   - logger: Logger instance for logging agent operations
 //   - cryptoKey: Path to public key file for RSA encryption
+//   - grpcAddress: gRPC server address (optional)
+//   - useGrpc: Whether to use gRPC for sending metrics
 //
 // Returns a new *Agent ready to have Run() called.
 func New(
@@ -154,6 +160,8 @@ func New(
 	timeout time.Duration,
 	logger *zap.Logger,
 	cryptoKey string,
+	grpcAddress string,
+	useGrpc bool,
 ) *Agent {
 	r := retrier.NewRetrier(
 		retryTimeouts(defaultRetryTimeouts, reportInterval),
@@ -170,6 +178,20 @@ func New(
 			logger.Error("Failed to load public key", zap.Error(err))
 		}
 	}
+
+	var grpcClient *GRPCClient
+	var localIP string
+	if useGrpc && grpcAddress != "" {
+		localIP := trustedsubnet.GetLocalIP()
+		var err error
+		grpcClient, err = NewGRPCClient(grpcAddress, localIP, logger)
+		if err != nil {
+			logger.Error("Failed to create gRPC client", zap.Error(err))
+			grpcClient = nil
+			useGrpc = false
+		}
+	}
+
 	return &Agent{
 		pollInterval:   pollInterval,
 		reportInterval: reportInterval,
@@ -183,6 +205,9 @@ func New(
 		retrier:        r,
 		logger:         logger,
 		pubKey:         pubKey,
+		grpcClient:     grpcClient,
+		localIP:        localIP,
+		useGrpc:        useGrpc,
 	}
 }
 
@@ -323,6 +348,14 @@ func (a *Agent) SendByBatch(ctx context.Context, metrics []model.Metric, useComp
 
 	req.Header.Set("Accept", "application/json")
 
+	// Если X-Real-IP используется для ограничения прав - нет никакого смысла
+	// доверять этому заголовку, выставленному на стороне агента.
+	// А необходимо принудительное выставление заголовка по пути от агента до сервера
+	// внутри контура, которому доверяет сервер.
+	if localIP := trustedsubnet.GetLocalIP(); localIP != "" {
+		req.Header.Set("X-Real-IP", localIP)
+	}
+
 	err = a.retrier.Retry(func() (e error) {
 		a.sem.Acquire(ctx, 1)
 		res, e := a.client.Do(req)
@@ -374,7 +407,12 @@ func (a *Agent) SendAll(ctx context.Context, useCompress bool) {
 		})
 	}
 
-	err := a.SendByBatch(ctx, metrics, useCompress)
+	var err error
+	if a.useGrpc && a.grpcClient != nil {
+		err = a.grpcClient.SendMetrics(ctx, metrics)
+	} else {
+		err = a.SendByBatch(ctx, metrics, useCompress)
+	}
 	if err != nil {
 		a.logger.Error("failed to send metrics by batch", zap.Error(err))
 	}
@@ -435,6 +473,10 @@ func (a *Agent) Run(ctx context.Context) {
 	sendCtx, sendCancel := context.WithTimeout(context.Background(), shutdownSendTimeout)
 	defer sendCancel()
 	a.SendAll(sendCtx, a.useCompress)
+
+	if a.grpcClient != nil {
+		a.grpcClient.Close()
+	}
 }
 
 // encryptRequestBody encrypts the request body using RSA-OAEP.

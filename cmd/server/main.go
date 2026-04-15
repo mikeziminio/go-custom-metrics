@@ -12,12 +12,12 @@ import (
 
 	"go.uber.org/zap"
 
+	"crypto/rsa"
+	"github.com/mikeziminio/go-custom-metrics/internal/crypto"
 	"github.com/mikeziminio/go-custom-metrics/internal/dbstorage"
 	"github.com/mikeziminio/go-custom-metrics/internal/log"
 	"github.com/mikeziminio/go-custom-metrics/internal/memstorage"
 	"github.com/mikeziminio/go-custom-metrics/internal/server"
-	"crypto/rsa"
-	"github.com/mikeziminio/go-custom-metrics/internal/crypto"
 	"github.com/mikeziminio/go-custom-metrics/internal/server/config"
 )
 
@@ -92,7 +92,6 @@ func main() {
 		}()
 	}
 
-	
 	var privKey *rsa.PrivateKey
 	if c.CryptoKey != "" {
 		var err error
@@ -110,7 +109,16 @@ func main() {
 		logger,
 		auditLogger,
 		c.PprofAddress,
+		c.TrustedSubnet,
 	)
 	s.RegisterRoutes()
+
+	go func() {
+		grpcServer := server.NewGRPCServer(storage, logger, c.GrpcAddress, c.TrustedSubnet)
+		if err := grpcServer.Run(ctx); err != nil {
+			logger.Error("gRPC server error", zap.Error(err))
+		}
+	}()
+
 	s.Run(ctx)
 }
